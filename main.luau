@@ -24,7 +24,7 @@ end;
 for i, v in supported_games do
 	
 	if tostring(game.PlaceId) == tostring(v) then
-		return loadstring(game:HttpGet('https://raw.githubusercontent.com/114S14/--GERM--/refs/heads/main/games/' .. tostring(i) .. '.lua'))();
+		return loadstring(game:HttpGet('https://raw.githubusercontent.com/114S14/--GERM--/refs/heads/main/games/' .. tostring(i) .. '.luau'))();
 	end;
 end;
 
