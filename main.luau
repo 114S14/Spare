@@ -1,5 +1,5 @@
 if getgenv().hub_enviorment then
-	return warn("GERM")
+	return warn("Spare")
 end
 
 local supported_games = {
@@ -7,14 +7,14 @@ local supported_games = {
 };
 
 getgenv().hub_enviorment = {
-	hub_version = game:HttpGet("https://raw.githubusercontent.com/114S14/--GERM--/refs/heads/main/version.txt");
+	hub_version = game:HttpGet("https://raw.githubusercontent.com/114S14/Spare/refs/heads/main/version.txt");
 };
 
 function hub_enviorment:Notify(text)
 
 	game:GetService("StarterGui"):SetCore("SendNotification", {
 
-		Title = 'GERM' .. tostring(hub_enviorment.hub_version),
+		Title = 'Spare' .. tostring(hub_enviorment.hub_version),
 		Text = tostring(text),
 
 		Duration = 3,
@@ -24,7 +24,7 @@ end;
 for i, v in supported_games do
 	
 	if tostring(game.PlaceId) == tostring(v) then
-		return loadstring(game:HttpGet('https://raw.githubusercontent.com/114S14/--GERM--/refs/heads/main/games/' .. tostring(i) .. '.luau'))();
+		return loadstring(game:HttpGet('https://raw.githubusercontent.com/114S14/Spare/refs/heads/main/games/' .. tostring(i) .. '.luau'))();
 	end;
 end;
 
