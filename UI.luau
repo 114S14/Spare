@@ -1,6 +1,6 @@
 --[=[
 	User Interface Library
-	Made by Late, Modified for Close Button Left of TitleBar with Roblox Decals and Fixed Floating Button Drag
+	Made by Late, Modified to Remove Close Button and Make Floating Button Icon Customizable
 ]=]
 
 --// Connections
@@ -257,7 +257,7 @@ function Animations:Component(Component: any, Custom: boolean)
 end
 
 --// Library [Window]
-function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string })
+function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string? })
 	local Window = Clone(Screen:WaitForChild("Main"))
 	local Sidebar = Window:FindFirstChild("Sidebar")
 	local Holder = Window:FindFirstChild("Main")
@@ -279,10 +279,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
+	--// 检查 Sidebar.Top 是否存在
+	local SidebarTop = Sidebar:FindFirstChild("Top")
+	if not SidebarTop then
+		warn("Sidebar.Top not found! Creating new Top frame.")
+		SidebarTop = Instance.new("Frame")
+		SidebarTop.Name = "Top"
+		SidebarTop.Parent = Sidebar
+		SidebarTop.BackgroundTransparency = 1
+		SidebarTop.Size = UDim2.new(1, 0, 0, 50)
+		SidebarTop.Position = UDim2.new(0, 0, 0, 0)
+	end
+	print("Sidebar.Top exists: ", SidebarTop ~= nil)
+
 	--// 添加标题栏
 	local TitleBar = Instance.new("TextLabel")
 	TitleBar.Name = "TitleBar"
-	TitleBar.Parent = Sidebar:FindFirstChild("Top")
+	TitleBar.Parent = SidebarTop
 	TitleBar.Size = UDim2.new(0.5, 0, 0, 30)
 	TitleBar.Position = UDim2.new(0, 10, 0, 5)
 	TitleBar.BackgroundTransparency = 1
@@ -294,39 +307,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	TitleBar.TextYAlignment = Enum.TextYAlignment.Center
 	TitleBar.ZIndex = 5
 
-	--// 添加关闭按钮
-	local CloseButton = Instance.new("TextButton")
-	CloseButton.Name = "CloseButton"
-	CloseButton.Parent = Sidebar:FindFirstChild("Top")
-	CloseButton.Size = UDim2.new(0, 24, 0, 24)
-	CloseButton.Position = UDim2.new(0, -30, 0, 5)
-	CloseButton.BackgroundColor3 = Theme.Interactables
-	CloseButton.Text = ""
-	CloseButton.BackgroundTransparency = Setup.Transparency
-	CloseButton.AutoButtonColor = false
-	CloseButton.ZIndex = 6
-	local CloseIcon = Instance.new("ImageLabel")
-	CloseIcon.Name = "Icon"
-	CloseIcon.Parent = CloseButton
-	CloseIcon.Size = UDim2.new(0, 16, 0, 16)
-	CloseIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-	CloseIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-	CloseIcon.BackgroundTransparency = 1
-	CloseIcon.Image = "rbxassetid://123456790" -- 替换为关闭按钮贴花 ID
-	CloseIcon.ImageColor3 = Theme.Title
-	CloseIcon.ImageTransparency = Setup.Transparency
-	CloseIcon.ZIndex = 7
-	local CloseCorner = Instance.new("UICorner")
-	CloseCorner.CornerRadius = UDim.new(0, 8)
-	CloseCorner.Parent = CloseButton
-	local CloseStroke = Instance.new("UIStroke")
-	CloseStroke.Color = Theme.Outline
-	CloseStroke.Thickness = 1
-	CloseStroke.Transparency = Setup.Transparency
-	CloseStroke.Parent = CloseButton
-
 	--// 删除原有按钮
-	local Buttons = Sidebar:FindFirstChild("Top"):FindFirstChild("Buttons")
+	local Buttons = SidebarTop:FindFirstChild("Buttons")
 	if Buttons then
 		for _, Button in pairs(Buttons:GetChildren()) do
 			if Button:IsA("TextButton") then
@@ -370,7 +352,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = "rbxassetid://110314286953699" -- 替换为悬浮按钮贴花 ID
+	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png" -- 使用用户指定的贴花或后备
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
 	FloatIcon.ZIndex = 11
@@ -382,6 +364,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	Stroke.Thickness = 1
 	Stroke.Transparency = Setup.Transparency
 	Stroke.Parent = FloatingButton
+
+	--// 调试 FloatingButton 贴花
+	print("FloatingButton created: ", FloatingButton ~= nil)
+	print("FloatIcon.Image: ", FloatIcon.Image)
+	print("FloatIcon.ImageTransparency: ", FloatIcon.ImageTransparency)
 
 	--// 使浮动按钮可拖动
 	local function MakeDraggable(Button)
@@ -474,14 +461,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			print("ToggleUI 完成，IsToggling 重置")
 		end)
 	end
-
-	--// 绑定关闭按钮
-	local CloseConnection = Connect(CloseButton.MouseButton1Click, function()
-		print("点击 CloseButton，触发关闭")
-		ToggleUI()
-	end)
-	table.insert(Connections, CloseConnection)
-	Animations:Component(CloseButton, true)
 
 	--// 绑定浮动按钮交互
 	local lastClickTime = 0
@@ -1007,16 +986,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Label.TextColor3 = Theme.Title
 				end
 			end,
-			["CloseButton"] = function(Button)
-				if Button:IsA("TextButton") then
-					Button.BackgroundColor3 = Theme.Interactables
-					local Icon = Button:FindFirstChild("Icon")
-					if Icon then
-						Icon.ImageColor3 = Theme.Title
-						Icon.ImageTransparency = Setup.Transparency
-					end
-				end
-			end,
 			["ToggleUIFloatingButton"] = function(Button)
 				if Button:IsA("TextButton") then
 					Button.BackgroundColor3 = Theme.Interactables
@@ -1081,9 +1050,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			FloatingButton.BackgroundTransparency = Value
 			FloatIcon.ImageTransparency = Value
 			Stroke.Transparency = Value
-			CloseButton.BackgroundTransparency = Value
-			CloseIcon.ImageTransparency = Value
-			CloseStroke.Transparency = Value
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title]
 			if AlreadyBlurred then
