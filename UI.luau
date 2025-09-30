@@ -279,10 +279,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
+	--// 检查 Sidebar.Top 是否存在
+	local SidebarTop = Sidebar:FindFirstChild("Top")
+	if not SidebarTop then
+		warn("Sidebar.Top not found! Creating new Top frame.")
+		SidebarTop = Instance.new("Frame")
+		SidebarTop.Name = "Top"
+		SidebarTop.Parent = Sidebar
+		SidebarTop.BackgroundTransparency = 1
+		SidebarTop.Size = UDim2.new(1, 0, 0, 50)
+		SidebarTop.Position = UDim2.new(0, 0, 0, 0)
+	end
+	print("Sidebar.Top exists: ", SidebarTop ~= nil)
+
 	--// 添加标题栏
 	local TitleBar = Instance.new("TextLabel")
 	TitleBar.Name = "TitleBar"
-	TitleBar.Parent = Sidebar:FindFirstChild("Top")
+	TitleBar.Parent = SidebarTop
 	TitleBar.Size = UDim2.new(0.5, 0, 0, 30)
 	TitleBar.Position = UDim2.new(0, 10, 0, 5)
 	TitleBar.BackgroundTransparency = 1
@@ -297,14 +310,15 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	--// 添加关闭按钮
 	local CloseButton = Instance.new("TextButton")
 	CloseButton.Name = "CloseButton"
-	CloseButton.Parent = Sidebar:FindFirstChild("Top")
+	CloseButton.Parent = SidebarTop
 	CloseButton.Size = UDim2.new(0, 24, 0, 24)
-	CloseButton.Position = UDim2.new(0, -30, 0, 5)
+	CloseButton.Position = UDim2.new(0, -40, 0, 5)
 	CloseButton.BackgroundColor3 = Theme.Interactables
 	CloseButton.Text = ""
 	CloseButton.BackgroundTransparency = Setup.Transparency
 	CloseButton.AutoButtonColor = false
 	CloseButton.ZIndex = 6
+	CloseButton.Visible = true -- 确保按钮可见
 	local CloseIcon = Instance.new("ImageLabel")
 	CloseIcon.Name = "Icon"
 	CloseIcon.Parent = CloseButton
@@ -312,7 +326,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	CloseIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	CloseIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	CloseIcon.BackgroundTransparency = 1
-	CloseIcon.Image = "rbxassetid://112010003704785" -- 替换为关闭按钮贴花 ID
+	CloseIcon.Image = "rbxassetid://112010003704785" -- 替换为实际关闭按钮贴花 ID，或使用后备
+	CloseIcon.Image = CloseIcon.Image == "rbxassetid://112010003704785" and "rbxasset://textures/ui/GuiImagePlaceholder.png" or CloseIcon.Image
 	CloseIcon.ImageColor3 = Theme.Title
 	CloseIcon.ImageTransparency = Setup.Transparency
 	CloseIcon.ZIndex = 7
@@ -325,8 +340,16 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	CloseStroke.Transparency = Setup.Transparency
 	CloseStroke.Parent = CloseButton
 
+	--// 调试 CloseButton 属性
+	print("CloseButton created: ", CloseButton ~= nil)
+	print("CloseButton.Parent: ", CloseButton.Parent)
+	print("CloseButton.Position: ", CloseButton.Position)
+	print("CloseButton.Visible: ", CloseButton.Visible)
+	print("CloseIcon.Image: ", CloseIcon.Image)
+	print("CloseIcon.ImageTransparency: ", CloseIcon.ImageTransparency)
+
 	--// 删除原有按钮
-	local Buttons = Sidebar:FindFirstChild("Top"):FindFirstChild("Buttons")
+	local Buttons = SidebarTop:FindFirstChild("Buttons")
 	if Buttons then
 		for _, Button in pairs(Buttons:GetChildren()) do
 			if Button:IsA("TextButton") then
@@ -370,7 +393,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = "rbxassetid://110314286953699" -- 替换为悬浮按钮贴花 ID
+	FloatIcon.Image = "rbxassetid://110314286953699" -- 替换为实际悬浮按钮贴花 ID
+	FloatIcon.Image = FloatIcon.Image == "rbxassetid://110314286953699" and "rbxasset://textures/ui/GuiImagePlaceholder.png" or FloatIcon.Image
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
 	FloatIcon.ZIndex = 11
