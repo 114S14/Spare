@@ -298,9 +298,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Examples = {};
 	local Opened = true;
 	local Maximized = false;
-	local BlurEnabled = false
-	local Connections = {}
-	local IsToggling = false -- 新增：防抖标志
+	local BlurEnabled = false;
+	local Connections = {};
+	local IsToggling = false;
+	local FloatButtonVisible = true; -- 新增：跟踪浮动按钮可见性
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -324,20 +325,81 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		Setup.Keybind = Settings.MinimizeKeybind
 	end
 
-	-- 新增：创建浮动按钮
+	-- 新增：创建标题栏
+	local TitleBar = Instance.new("Frame")
+	TitleBar.Name = "TitleBar"
+	TitleBar.Parent = Window
+	TitleBar.BackgroundColor3 = Theme.Primary
+	TitleBar.Size = UDim2.new(1, 0, 0, 30)
+	TitleBar.Position = UDim2.new(0, 0, 0, 0)
+	TitleBar.ZIndex = 5
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Parent = TitleBar
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Size = UDim2.new(1, -80, 1, 0)
+	TitleLabel.Position = UDim2.new(0, 80, 0, 0)
+	TitleLabel.Text = Settings.Title
+	TitleLabel.TextColor3 = Theme.Title
+	TitleLabel.TextScaled = true
+	TitleLabel.Font = Enum.Font.SourceSansBold
+	local TitlePadding = Instance.new("UIPadding")
+	TitlePadding.Parent = TitleLabel
+	TitlePadding.PaddingLeft = UDim.new(0, 10)
+	TitlePadding.PaddingRight = UDim.new(0, 10)
+
+	-- 新增：创建关闭按钮（×贴花）
+	local CloseButton = Instance.new("ImageButton")
+	CloseButton.Name = "CloseButton"
+	CloseButton.Parent = TitleBar
+	CloseButton.BackgroundTransparency = 1
+	CloseButton.Size = UDim2.new(0, 30, 0, 30)
+	CloseButton.Position = UDim2.new(0, 5, 0, 0)
+	CloseButton.Image = "rbxassetid://6644618143" -- ×贴花
+	CloseButton.ImageColor3 = Theme.Icon
+	CloseButton.ZIndex = 6
+	CloseButton.AutoButtonColor = false
+
+	-- 新增：创建缩小按钮
+	local MinimizeButton = Instance.new("ImageButton")
+	MinimizeButton.Name = "MinimizeButton"
+	MinimizeButton.Parent = TitleBar
+	MinimizeButton.BackgroundTransparency = 1
+	MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+	MinimizeButton.Position = UDim2.new(0, 40, 0, 0)
+	MinimizeButton.Image = "rbxassetid://6644618143" -- 缩小贴花（可替换）
+	MinimizeButton.ImageColor3 = Theme.Icon
+	MinimizeButton.ZIndex = 6
+	MinimizeButton.AutoButtonColor = false
+
+	-- 修改：调整主窗口内容位置以适应标题栏
+	Holder.Position = UDim2.new(0, 0, 0, 30)
+	Holder.Size = UDim2.new(1, 0, 1, -30)
+	Sidebar.Position = UDim2.new(0, 0, 0, 30)
+	Sidebar.Size = UDim2.new(0, 150, 1, -30)
+
+	-- 新增：创建浮动按钮（使用贴花）
 	local FloatingButton = Instance.new("TextButton")
 	FloatingButton.Name = "ToggleUIFloatingButton"
 	FloatingButton.Parent = Screen
 	FloatingButton.BackgroundColor3 = Theme.Interactables
 	FloatingButton.Size = UDim2.new(0, 50, 0, 50)
-	FloatingButton.Position = UDim2.new(1, -70, 1, -70) -- 右下角，带偏移
-	FloatingButton.Text = "UI"
-	FloatingButton.TextColor3 = Theme.Title
-	FloatingButton.TextScaled = true
+	FloatingButton.Position = UDim2.new(1, -70, 1, -70)
+	FloatingButton.Text = "" -- 修改：移除文字
 	FloatingButton.BackgroundTransparency = Setup.Transparency
 	FloatingButton.AutoButtonColor = false
 	FloatingButton.ZIndex = 10
-	FloatingButton.Visible = true -- 修改：确保按钮始终可见
+	FloatingButton.Visible = true
+
+	-- 新增：浮动按钮贴花
+	local FloatIcon = Instance.new("ImageLabel")
+	FloatIcon.Name = "Icon"
+	FloatIcon.Parent = FloatingButton
+	FloatIcon.Size = UDim2.new(0.6, 0, 0.6, 0)
+	FloatIcon.Position = UDim2.new(0.2, 0, 0.2, 0)
+	FloatIcon.BackgroundTransparency = 1
+	FloatIcon.Image = "rbxassetid://6644618143" -- 切换贴花
+	FloatIcon.ImageColor3 = Theme.Icon
+	FloatIcon.ZIndex = 11
 
 	-- 添加圆角
 	local Corner = Instance.new("UICorner")
@@ -399,7 +461,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	--// Animate
 	local ToggleUI = function()
-		if IsToggling then return end -- 新增：防止重复触发
+		if IsToggling then return end
 		IsToggling = true
 
 		if Opened then
@@ -411,12 +473,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			Opened = false
 			Animations:Close(Window)
-			task.wait(0.25) -- 修改：等待动画完成
+			task.wait(0.25)
 			Window.Visible = false
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
 			Tween(Stroke, 0.25, { Transparency = 0.5 })
+			Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
 		else
-			Window.Visible = true -- 修改：先设置可见性
+			Window.Visible = true
 			Animations:Open(Window, Setup.Transparency)
 			Opened = true
 			if BlurEnabled then
@@ -427,17 +490,43 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
 			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
+			Tween(FloatIcon, 0.25, { ImageTransparency = 0 })
 		end
 
 		task.spawn(function()
-			task.wait(0.3) -- 修改：稍延长防抖时间
+			task.wait(0.3)
 			IsToggling = false
 		end)
 	end
 
-	-- 新增：绑定浮动按钮交互（分离点击和拖动）
+	-- 新增：缩小按钮逻辑（切换浮动按钮可见性）
+	local ToggleFloatButton = function()
+		FloatButtonVisible = not FloatButtonVisible
+		if FloatButtonVisible then
+			FloatingButton.Visible = true
+			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
+			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
+			Tween(FloatIcon, 0.25, { ImageTransparency = 0 })
+		else
+			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
+			Tween(Stroke, 0.25, { Transparency = 0.5 })
+			Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
+			task.wait(0.25)
+			FloatingButton.Visible = false
+		end
+	end
+
+	-- 新增：绑定关闭按钮和缩小按钮
+	local CloseConnection = Connect(CloseButton.MouseButton1Click, ToggleUI)
+	local MinimizeConnection = Connect(MinimizeButton.MouseButton1Click, ToggleFloatButton)
+	table.insert(Connections, CloseConnection)
+	table.insert(Connections, MinimizeConnection)
+	Animations:Component(CloseButton, true)
+	Animations:Component(MinimizeButton, true)
+
+	-- 新增：浮动按钮交互（分离点击和拖动）
 	local lastClickTime = 0
-	local clickDelay = 0.2 -- 新增：防抖时间（秒）
+	local clickDelay = 0.2
 	local FloatClickConnection = Connect(FloatingButton.InputBegan, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 			local currentTime = tick()
@@ -447,9 +536,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 		end
 	end)
-	table.insert(Connections, FloatClickConnection)
-
-	-- 修改：优化触摸检测
 	local FloatTouchConnection = Connect(Services.Input.InputEnded, function(Input)
 		if Input.UserInputType == Enum.UserInputType.Touch and not Type then
 			local TouchPos = Input.Position
@@ -465,16 +551,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 		end
 	end)
+	table.insert(Connections, FloatClickConnection)
 	table.insert(Connections, FloatTouchConnection)
 	Animations:Component(FloatingButton, true)
 
+	-- 修改：只绑定 Maximize 和 Minimize 按钮（移除 Close）
 	for Index, Button in next, Sidebar.Top.Buttons:GetChildren() do
-		if Button:IsA("TextButton") then
+		if Button:IsA("TextButton") and Button.Name ~= "Close" then
 			local Name = Button.Name
 			Animations:Component(Button, true)
 
 			local ButtonConnection = Connect(Button.MouseButton1Click, function() 
-				if Name == "Close" or Name == "Minimize" then
+				if Name == "Minimize" then
 					ToggleUI()
 				elseif Name == "Maximize" then
 					if Maximized then
@@ -1042,7 +1130,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				if Label:FindFirstChild("Labels") then
 					Label.BackgroundColor3 = Theme.Component
 				end
-			end,
+		 end,
 
 			["ScrollingFrame"] = function(Label)
 				Label.ScrollBarImageColor3 = Theme.Component
@@ -1056,6 +1144,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		Window.BackgroundColor3 = Theme.Primary
 		Holder.BackgroundColor3 = Theme.Secondary
 		Window.UIStroke.Color = Theme.Shadow
+		TitleBar.BackgroundColor3 = Theme.Primary -- 新增：更新标题栏颜色
+		CloseButton.ImageColor3 = Theme.Icon
+		MinimizeButton.ImageColor3 = Theme.Icon
+		FloatingButton.BackgroundColor3 = Theme.Interactables
+		FloatIcon.ImageColor3 = Theme.Icon
 
 		for Index, Descendant in next, Screen:GetDescendants() do
 			local Name, Class = Themes.Names[Descendant.Name], Themes.Classes[Descendant.ClassName]
@@ -1084,6 +1177,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			FloatingButton.BackgroundTransparency = Value
 			Stroke.Transparency = Value
+			FloatIcon.ImageTransparency = FloatButtonVisible and 0 or 0.5 -- 新增：同步贴花透明度
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title], nil
 			
