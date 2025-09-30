@@ -1,6 +1,6 @@
 --[[
 	User Interface Library
-	Made by Late (Fixed for UI Bugs - Text Garbling & Background Glitch)
+	Made by Late
 ]]
 
 --// Connections
@@ -23,16 +23,23 @@ local Setup = {
 	Size = nil,
 }
 
-local Theme = { --// (Dark Theme) - Increased contrast for text
+local Theme = { --// (Dark Theme)
+	--// Frames:
 	Primary = Color3.fromRGB(30, 30, 30),
 	Secondary = Color3.fromRGB(35, 35, 35),
 	Component = Color3.fromRGB(40, 40, 40),
 	Interactables = Color3.fromRGB(45, 45, 45),
-	Tab = Color3.fromRGB(255, 255, 255), -- 修改：纯白，提高对比度
-	Title = Color3.fromRGB(255, 255, 255), -- 修改：纯白，避免乱码
-	Description = Color3.fromRGB(200, 200, 200),
+
+	--// Text:
+	Tab = Color3.fromRGB(200, 200, 200),
+	Title = Color3.fromRGB(240,240,240),
+	Description = Color3.fromRGB(200,200,200),
+
+	--// Outlines:
 	Shadow = Color3.fromRGB(0, 0, 0),
 	Outline = Color3.fromRGB(40, 40, 40),
+
+	--// Image:
 	Icon = Color3.fromRGB(220, 220, 220),
 }
 
@@ -53,11 +60,13 @@ local Player = {
 
 local Tween = function(Object : Instance, Speed : number, Properties : {},  Info : { EasingStyle: Enum?, EasingDirection: Enum? })
 	local Style, Direction
+
 	if Info then
 		Style, Direction = Info["EasingStyle"], Info["EasingDirection"]
 	else
 		Style, Direction = Enum.EasingStyle.Sine, Enum.EasingDirection.Out
 	end
+
 	return Services.Tween:Create(Object, TweenInfo.new(Speed, Style, Direction), Properties):Play()
 end
 
@@ -65,6 +74,7 @@ local SetProperty = function(Object: Instance, Properties: {})
 	for Index, Property in next, Properties do
 		Object[Index] = (Property);
 	end
+
 	return Object
 end
 
@@ -75,11 +85,13 @@ local Multiply = function(Value, Amount)
 		Value.Y.Scale * Amount;
 		Value.Y.Offset * Amount;
 	}
+
 	return UDim2.new(unpack(New))
 end
 
 local Color = function(Color, Factor, Mode)
 	Mode = Mode or Setup.ThemeMode
+
 	if Mode == "Light" then
 		return Color3.fromRGB((Color.R * 255) - Factor, (Color.G * 255) - Factor, (Color.B * 255) - Factor)
 	else
@@ -104,6 +116,7 @@ local Drag = function(Canvas)
 				Dragging = true
 				Start = Input.Position
 				StartPosition = Canvas.Position
+
 				Connect(Input.Changed, function()
 					if Input.UserInputState == Enum.UserInputState.End then
 						Dragging = false
@@ -136,8 +149,10 @@ Resizing = {
 Resizeable = function(Tab, Minimum, Maximum)
 	task.spawn(function()
 		local MousePos, Size, UIPos = nil, nil, nil
+
 		if Tab and Tab:FindFirstChild("Resize") then
 			local Positions = Tab:FindFirstChild("Resize")
+
 			for Index, Types in next, Positions:GetChildren() do
 				Connect(Types.InputBegan, function(Input)
 					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -147,6 +162,7 @@ Resizeable = function(Tab, Minimum, Maximum)
 						UIPos = Tab.Position
 					end
 				end)
+
 				Connect(Types.InputEnded, function(Input)
 					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 						Type = nil
@@ -160,10 +176,13 @@ Resizeable = function(Tab, Minimum, Maximum)
 				local Mode = Resizing[Type.Name]
 				local NewSize = Vector2.new(Size.X + Delta.X * Mode.X.X, Size.Y + Delta.Y * Mode.Y.Y)
 				NewSize = Vector2.new(math.clamp(NewSize.X, Minimum.X, Maximum.X), math.clamp(NewSize.Y, Minimum.Y, Maximum.Y))
+
 				local AnchorOffset = Vector2.new(Tab.AnchorPoint.X * Size.X, Tab.AnchorPoint.Y * Size.Y)
 				local NewAnchorOffset = Vector2.new(Tab.AnchorPoint.X * NewSize.X, Tab.AnchorPoint.Y * NewSize.Y)
 				local DeltaAnchorOffset = NewAnchorOffset - AnchorOffset
+
 				Tab.Size = UDim2.new(0, NewSize.X, 0, NewSize.Y)
+
 				local NewPosition = UDim2.new(
 					UIPos.X.Scale, 
 					UIPos.X.Offset + DeltaAnchorOffset.X * Mode.X.X,
@@ -185,14 +204,10 @@ end
 --// Setup [UI]
 if (identifyexecutor) then
 	Screen = Services.Insert:LoadLocalAsset("rbxassetid://18490507748");
-	pcall(function() -- 修改：添加错误处理，避免 Blur 加载失败
-		Blur = loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))();
-	end)
+	Blur = loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))();
 else
 	Screen = (script.Parent);
-	pcall(function() -- 修改：添加错误处理
-		Blur = require(script.Blur)
-	end)
+	Blur = require(script.Blur)
 end
 
 Screen.Main.Visible = false
@@ -218,19 +233,36 @@ function Animations:Open(Window: CanvasGroup, Transparency: number, UseCurrentSi
 	local Original = (UseCurrentSize and Window.Size) or Setup.Size
 	local Multiplied = Multiply(Original, 1.1)
 	local Shadow = Window:FindFirstChildOfClass("UIStroke")
+
 	SetProperty(Shadow, { Transparency = 1 })
-	SetProperty(Window, { Size = Multiplied, GroupTransparency = 1, Visible = true })
+	SetProperty(Window, {
+		Size = Multiplied,
+		GroupTransparency = 1,
+		Visible = true,
+	})
+
 	Tween(Shadow, .25, { Transparency = 0.5 })
-	Tween(Window, .25, { Size = Original, GroupTransparency = Transparency or 0 })
+	Tween(Window, .25, {
+		Size = Original,
+		GroupTransparency = Transparency or 0,
+	})
 end
 
 function Animations:Close(Window: CanvasGroup)
 	local Original = Window.Size
 	local Multiplied = Multiply(Original, 1.1)
 	local Shadow = Window:FindFirstChildOfClass("UIStroke")
-	SetProperty(Window, { Size = Original })
+
+	SetProperty(Window, {
+		Size = Original,
+	})
+
 	Tween(Shadow, .25, { Transparency = 1 })
-	Tween(Window, .25, { Size = Multiplied, GroupTransparency = 1 })
+	Tween(Window, .25, {
+		Size = Multiplied,
+		GroupTransparency = 1,
+	})
+
 	task.wait(.25)
 	Window.Size = Original
 	Window.Visible = false
@@ -239,14 +271,15 @@ end
 function Animations:Component(Component: any, Custom: boolean)	
 	Connect(Component.InputBegan, function() 
 		if Custom then
-			Tween(Component, .25, { ImageTransparency = .85 }); -- 修改：针对 ImageButton
+			Tween(Component, .25, { Transparency = .85 });
 		else
 			Tween(Component, .25, { BackgroundColor3 = Color(Theme.Component, 5, Setup.ThemeMode) });
 		end
 	end)
+
 	Connect(Component.InputEnded, function() 
 		if Custom then
-			Tween(Component, .25, { ImageTransparency = 0 });
+			Tween(Component, .25, { Transparency = 1 });
 		else
 			Tween(Component, .25, { BackgroundColor3 = Theme.Component });
 		end
@@ -268,7 +301,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local BlurEnabled = false;
 	local Connections = {};
 	local IsToggling = false;
-	local FloatButtonVisible = true;
+	local FloatButtonVisible = true; -- 新增：跟踪浮动按钮可见性
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -283,120 +316,121 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	Setup.Size = Settings.Size
 	Setup.ThemeMode = Settings.Theme or "Dark"
 
-	-- 修改：默认禁用 Blurring 以避免背景 glitch，允许手动启用
 	if Settings.Blurring then
-		pcall(function()
-			Blurs[Settings.Title] = Blur.new(Window, 5)
-			BlurEnabled = true
-		end)
+		Blurs[Settings.Title] = Blur.new(Window, 5)
+		BlurEnabled = true
 	end
 
 	if Settings.MinimizeKeybind then
 		Setup.Keybind = Settings.MinimizeKeybind
 	end
 
-	-- 修改：创建标题栏（移到最左边）
+	-- 新增：创建标题栏
 	local TitleBar = Instance.new("Frame")
 	TitleBar.Name = "TitleBar"
 	TitleBar.Parent = Window
 	TitleBar.BackgroundColor3 = Theme.Primary
-	TitleBar.Size = UDim2.new(0, 150, 0, 30)
+	TitleBar.Size = UDim2.new(1, 0, 0, 30)
 	TitleBar.Position = UDim2.new(0, 0, 0, 0)
 	TitleBar.ZIndex = 5
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Parent = TitleBar
 	TitleLabel.BackgroundTransparency = 1
 	TitleLabel.Size = UDim2.new(1, -80, 1, 0)
-	TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+	TitleLabel.Position = UDim2.new(0, 80, 0, 0)
 	TitleLabel.Text = Settings.Title
 	TitleLabel.TextColor3 = Theme.Title
 	TitleLabel.TextScaled = true
-	TitleLabel.Font = Enum.Font.Gotham -- 修改：使用可靠字体，避免乱码
-	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left -- 修改：左对齐，提高可读性
+	TitleLabel.Font = Enum.Font.SourceSansBold
 	local TitlePadding = Instance.new("UIPadding")
 	TitlePadding.Parent = TitleLabel
 	TitlePadding.PaddingLeft = UDim.new(0, 10)
 	TitlePadding.PaddingRight = UDim.new(0, 10)
 
-	-- 修改：创建关闭按钮（移到右侧）
+	-- 新增：创建关闭按钮（×贴花）
 	local CloseButton = Instance.new("ImageButton")
 	CloseButton.Name = "CloseButton"
-	CloseButton.Parent = Window
+	CloseButton.Parent = TitleBar
 	CloseButton.BackgroundTransparency = 1
 	CloseButton.Size = UDim2.new(0, 30, 0, 30)
-	CloseButton.Position = UDim2.new(1, -35, 0, 0)
-	CloseButton.Image = "rbxassetid://6644618143"
+	CloseButton.Position = UDim2.new(0, 5, 0, 0)
+	CloseButton.Image = "rbxassetid://6644618143" -- ×贴花
 	CloseButton.ImageColor3 = Theme.Icon
 	CloseButton.ZIndex = 6
 	CloseButton.AutoButtonColor = false
 
-	-- 修改：创建缩小按钮（移到右侧）
+	-- 新增：创建缩小按钮
 	local MinimizeButton = Instance.new("ImageButton")
 	MinimizeButton.Name = "MinimizeButton"
-	MinimizeButton.Parent = Window
+	MinimizeButton.Parent = TitleBar
 	MinimizeButton.BackgroundTransparency = 1
 	MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-	MinimizeButton.Position = UDim2.new(1, -70, 0, 0)
-	MinimizeButton.Image = "rbxassetid://6644618143"
+	MinimizeButton.Position = UDim2.new(0, 40, 0, 0)
+	MinimizeButton.Image = "rbxassetid://6644618143" -- 缩小贴花（可替换）
 	MinimizeButton.ImageColor3 = Theme.Icon
 	MinimizeButton.ZIndex = 6
 	MinimizeButton.AutoButtonColor = false
 
-	-- 修改：调整布局以适应标题栏，并修复背景
-	Holder.Position = UDim2.new(0, 150, 0, 0)
-	Holder.Size = UDim2.new(1, -150, 1, 0)
-	Holder.BackgroundColor3 = Theme.Secondary -- 修改：强制设置背景色，避免 glitch
+	-- 修改：调整主窗口内容位置以适应标题栏
+	Holder.Position = UDim2.new(0, 0, 0, 30)
+	Holder.Size = UDim2.new(1, 0, 1, -30)
 	Sidebar.Position = UDim2.new(0, 0, 0, 30)
 	Sidebar.Size = UDim2.new(0, 150, 1, -30)
-	Sidebar.BackgroundColor3 = Theme.Primary -- 修改：强制设置侧边栏背景，避免乱码覆盖
 
-	-- 创建浮动按钮（使用贴花）
+	-- 新增：创建浮动按钮（使用贴花）
 	local FloatingButton = Instance.new("TextButton")
 	FloatingButton.Name = "ToggleUIFloatingButton"
 	FloatingButton.Parent = Screen
 	FloatingButton.BackgroundColor3 = Theme.Interactables
 	FloatingButton.Size = UDim2.new(0, 50, 0, 50)
 	FloatingButton.Position = UDim2.new(1, -70, 1, -70)
-	FloatingButton.Text = ""
+	FloatingButton.Text = "" -- 修改：移除文字
 	FloatingButton.BackgroundTransparency = Setup.Transparency
 	FloatingButton.AutoButtonColor = false
 	FloatingButton.ZIndex = 10
 	FloatingButton.Visible = true
 
+	-- 新增：浮动按钮贴花
 	local FloatIcon = Instance.new("ImageLabel")
 	FloatIcon.Name = "Icon"
 	FloatIcon.Parent = FloatingButton
 	FloatIcon.Size = UDim2.new(0.6, 0, 0.6, 0)
 	FloatIcon.Position = UDim2.new(0.2, 0, 0.2, 0)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = "rbxassetid://6644618143"
+	FloatIcon.Image = "rbxassetid://6644618143" -- 切换贴花
 	FloatIcon.ImageColor3 = Theme.Icon
 	FloatIcon.ZIndex = 11
 
+	-- 添加圆角
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0, 12)
 	Corner.Parent = FloatingButton
 
+	-- 添加描边
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Color = Theme.Outline
 	Stroke.Thickness = 1
 	Stroke.Transparency = Setup.Transparency
 	Stroke.Parent = FloatingButton
 
+	-- 新增：使浮动按钮可拖动（带边界检查）
 	local function MakeDraggable(Button)
 		local Dragging, DragInput, Start, StartPosition
 		local ScreenSize = game:GetService("GuiService"):GetScreenResolution()
+
 		local function Update(input)
 			local delta = input.Position - Start
 			local newX = math.clamp(StartPosition.X.Offset + delta.X, 0, ScreenSize.X - Button.AbsoluteSize.X)
 			local newY = math.clamp(StartPosition.Y.Offset + delta.Y, 0, ScreenSize.Y - Button.AbsoluteSize.Y)
 			Button.Position = UDim2.new(0, newX, 0, newY)
 		end
+
 		local DragConnection1 = Connect(Button.InputBegan, function(Input)
 			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
 				Dragging = true
 				Start = Input.Position
 				StartPosition = Button.Position
+
 				local DragConnection2 = Connect(Input.Changed, function()
 					if Input.UserInputState == Enum.UserInputState.End then
 						Dragging = false
@@ -405,16 +439,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				table.insert(Connections, DragConnection2)
 			end
 		end)
+
 		local DragConnection3 = Connect(Button.InputChanged, function(Input)
 			if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
 				DragInput = Input
 			end
 		end)
+
 		local DragConnection4 = Connect(Services.Input.InputChanged, function(Input)
 			if Input == DragInput and Dragging then
 				Update(Input)
 			end
 		end)
+
 		table.insert(Connections, DragConnection1)
 		table.insert(Connections, DragConnection3)
 		table.insert(Connections, DragConnection4)
@@ -422,9 +459,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	MakeDraggable(FloatingButton)
 
+	--// Animate
 	local ToggleUI = function()
 		if IsToggling then return end
 		IsToggling = true
+
 		if Opened then
 			if BlurEnabled then
 				local blur = Blurs[Settings.Title]
@@ -453,12 +492,14 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
 			Tween(FloatIcon, 0.25, { ImageTransparency = 0 })
 		end
+
 		task.spawn(function()
 			task.wait(0.3)
 			IsToggling = false
 		end)
 	end
 
+	-- 新增：缩小按钮逻辑（切换浮动按钮可见性）
 	local ToggleFloatButton = function()
 		FloatButtonVisible = not FloatButtonVisible
 		if FloatButtonVisible then
@@ -475,6 +516,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
+	-- 新增：绑定关闭按钮和缩小按钮
 	local CloseConnection = Connect(CloseButton.MouseButton1Click, ToggleUI)
 	local MinimizeConnection = Connect(MinimizeButton.MouseButton1Click, ToggleFloatButton)
 	table.insert(Connections, CloseConnection)
@@ -482,6 +524,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	Animations:Component(CloseButton, true)
 	Animations:Component(MinimizeButton, true)
 
+	-- 新增：浮动按钮交互（分离点击和拖动）
 	local lastClickTime = 0
 	local clickDelay = 0.2
 	local FloatClickConnection = Connect(FloatingButton.InputBegan, function(Input)
@@ -512,10 +555,12 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	table.insert(Connections, FloatTouchConnection)
 	Animations:Component(FloatingButton, true)
 
+	-- 修改：只绑定 Maximize 和 Minimize 按钮（移除 Close）
 	for Index, Button in next, Sidebar.Top.Buttons:GetChildren() do
 		if Button:IsA("TextButton") and Button.Name ~= "Close" then
 			local Name = Button.Name
 			Animations:Component(Button, true)
+
 			local ButtonConnection = Connect(Button.MouseButton1Click, function() 
 				if Name == "Minimize" then
 					ToggleUI()
@@ -540,17 +585,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	end)
 	table.insert(Connections, KeybindConnection)
 
-	--// Tab Functions (修复：强制更新侧边栏文本颜色和字体)
+	--// Tab Functions
 	function Options:SetTab(Name: string)
 		for Index, Button in next, Tab:GetChildren() do
 			if Button:IsA("TextButton") then
 				local Opened, SameName = Button.Value, (Button.Name == Name);
 				local Padding = Button:FindFirstChildOfClass("UIPadding");
-				local TextLabel = Button:FindFirstChild("TextLabel") -- 修改：强制更新文本
-				if TextLabel then
-					TextLabel.Font = Enum.Font.Gotham -- 修改：使用可靠字体
-					TextLabel.TextColor3 = Theme.Tab -- 修改：强制纯白
-				end
+
 				if SameName and not Opened.Value then
 					Tween(Padding, .25, { PaddingLeft = UDim.new(0, 25) });
 					Tween(Button, .25, { BackgroundTransparency = 0.9, Size = UDim2.new(1, -15, 0, 30) });
@@ -562,20 +603,24 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				end
 			end
 		end
+
 		for Index, Main in next, Holder:GetChildren() do
 			if Main:IsA("CanvasGroup") then
 				local Opened, SameName = Main.Value, (Main.Name == Name);
 				local Scroll = Main:FindFirstChild("ScrollingFrame");
+
 				if SameName and not Opened.Value then
 					Opened.Value = true
 					Main.Visible = true
-					Main.BackgroundColor3 = Theme.Secondary -- 修改：强制背景色
+
 					Tween(Main, .3, { GroupTransparency = 0 });
 					Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) });
 				elseif not SameName and Opened.Value then
 					Opened.Value = false
+
 					Tween(Main, .15, { GroupTransparency = 1 });
 					Tween(Scroll["UIPadding"], .15, { PaddingTop = UDim.new(0, 15) });	
+
 					task.delay(.2, function()
 						Main.Visible = false
 					end)
@@ -587,6 +632,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	function Options:AddTabSection(Settings: { Name: string, Order: number })
 		local Example = Examples["SectionExample"];
 		local Section = Clone(Example);
+
 		StoredInfo["Sections"][Settings.Name] = (Settings.Order);
 		SetProperty(Section, { 
 			Parent = Example.Parent,
@@ -595,61 +641,63 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			LayoutOrder = Settings.Order,
 			Visible = true
 		});
-		local TextLabel = Section:FindFirstChild("TextLabel") -- 修改：修复文本
-		if TextLabel then
-			TextLabel.Font = Enum.Font.Gotham
-			TextLabel.TextColor3 = Theme.Title
-		end
 	end
 
 	function Options:AddTab(Settings: { Title: string, Icon: string, Section: string? })
 		if StoredInfo["Tabs"][Settings.Title] then 
 			error("[UI LIB]: A tab with the same name has already been created") 
 		end 
+
 		local Example, MainExample = Examples["TabButtonExample"], Examples["MainExample"];
 		local Section = StoredInfo["Sections"][Settings.Section];
 		local Main = Clone(MainExample);
 		local Tab = Clone(Example);
+
 		if not Settings.Icon then
 			Destroy(Tab["ICO"]);
 		else
 			SetProperty(Tab["ICO"], { Image = Settings.Icon });
 		end
+
 		StoredInfo["Tabs"][Settings.Title] = { Tab }
 		SetProperty(Tab["TextLabel"], { Text = Settings.Title });
+
 		SetProperty(Main, { 
 			Parent = MainExample.Parent,
-			Name = Settings.Title,
-			BackgroundColor3 = Theme.Secondary -- 修改：强制背景
+			Name = Settings.Title;
 		});
+
 		SetProperty(Tab, { 
 			Parent = Example.Parent,
 			LayoutOrder = Section or #StoredInfo["Sections"] + 1,
 			Name = Settings.Title;
 			Visible = true;
 		});
-		local TabText = Tab:FindFirstChild("TextLabel") -- 修改：修复标签文本
-		if TabText then
-			TabText.Font = Enum.Font.Gotham
-			TabText.TextColor3 = Theme.Tab
-		end
+
 		local TabConnection = Tab.MouseButton1Click:Connect(function()
 			Options:SetTab(Tab.Name);
 		end)
 		table.insert(Connections, TabConnection)
+
 		return Main.ScrollingFrame
 	end
 	
+	--// Notifications
 	function Options:Notify(Settings: { Title: string, Description: string, Duration: number }) 
 		local Notification = Clone(Components["Notification"]);
 		local Title, Description = Options:GetLabels(Notification);
 		local Timer = Notification["Timer"];
+		
 		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Notification, { Parent = Screen["Frame"] })
+		SetProperty(Notification, {
+			Parent = Screen["Frame"],
+		})
+		
 		task.spawn(function() 
 			local Duration = Settings.Duration or 2
 			local Wait = task.wait;
+			
 			Animations:Open(Notification, Setup.Transparency, true); 
 			Tween(Timer, Duration, { Size = UDim2.new(0, 0, 0, 4) });
 			Wait(Duration);
@@ -659,6 +707,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end)
 	end
 
+	--// Component Functions
 	function Options:GetLabels(Component)
 		local Labels = Component:FindFirstChild("Labels")
 		return Labels.Title, Labels.Description
@@ -666,22 +715,26 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	function Options:AddSection(Settings: { Name: string, Tab: Instance }) 
 		local Section = Clone(Components["Section"]);
-		SetProperty(Section, { Text = Settings.Name, Parent = Settings.Tab, Visible = true })
-		local TextLabel = Section:FindFirstChild("TextLabel") -- 修改：修复分区文本
-		if TextLabel then
-			TextLabel.Font = Enum.Font.Gotham
-			TextLabel.TextColor3 = Theme.Title
-		end
+		SetProperty(Section, {
+			Text = Settings.Name,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 	end
 	
 	function Options:AddButton(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
 		local Button = Clone(Components["Button"]);
 		local Title, Description = Options:GetLabels(Button);
+
 		local ButtonConnection = Connect(Button.MouseButton1Click, Settings.Callback)
 		Animations:Component(Button)
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Button, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
+		SetProperty(Button, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 		table.insert(Connections, ButtonConnection)
 	end
 
@@ -689,16 +742,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Input = Clone(Components["Input"]);
 		local Title, Description = Options:GetLabels(Input);
 		local TextBox = Input["Main"]["Input"];
+
 		local InputClickConnection = Connect(Input.MouseButton1Click, function() 
 			TextBox:CaptureFocus()
 		end)
+
 		local InputFocusConnection = Connect(TextBox.FocusLost, function() 
 			Settings.Callback(TextBox.Text)
 		end)
+
 		Animations:Component(Input)
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Input, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
+		SetProperty(Input, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 		table.insert(Connections, InputClickConnection)
 		table.insert(Connections, InputFocusConnection)
 	end
@@ -706,9 +766,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	function Options:AddToggle(Settings: { Title: string, Description: string, Default: boolean, Tab: Instance, Callback: any }) 
 		local Toggle = Clone(Components["Toggle"]);
 		local Title, Description = Options:GetLabels(Toggle);
+
 		local On = Toggle["Value"];
 		local Main = Toggle["Main"];
 		local Circle = Main["Circle"];
+		
 		local Set = function(Value)
 			if Value then
 				Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) });
@@ -717,18 +779,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				Tween(Main, .2, { BackgroundColor3 = Theme.Interactables });
 				Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) });
 			end
+			
 			On.Value = Value
 		end 
+
 		local ToggleConnection = Connect(Toggle.MouseButton1Click, function()
 			local Value = not On.Value
 			Set(Value)
 			Settings.Callback(Value)
 		end)
+
 		Animations:Component(Toggle);
 		Set(Settings.Default);
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Toggle, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
+		SetProperty(Toggle, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 		table.insert(Connections, ToggleConnection)
 	end
 	
@@ -736,31 +805,48 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Dropdown = Clone(Components["Keybind"]);
 		local Title, Description = Options:GetLabels(Dropdown);
 		local Bind = Dropdown["Main"].Options;
+		
 		local Mouse = { Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3 }; 
-		local Types = { ["Mouse"] = "Enum.UserInputType.MouseButton", ["Key"] = "Enum.KeyCode." }
+		local Types = { 
+			["Mouse"] = "Enum.UserInputType.MouseButton", 
+			["Key"] = "Enum.KeyCode." 
+		}
+		
 		local KeybindConnection = Connect(Dropdown.MouseButton1Click, function()
 			local Time = tick();
 			local Detect, Finished
+			
 			SetProperty(Bind, { Text = "..." });
 			Detect = Connect(game.UserInputService.InputBegan, function(Key, Focused) 
 				local InputType = (Key.UserInputType);
+				
 				if not Finished and not Focused then
 					Finished = (true)
+					
 					if table.find(Mouse, InputType) then
 						Settings.Callback(Key);
-						SetProperty(Bind, { Text = tostring(InputType):gsub(Types.Mouse, "MB") })
+						SetProperty(Bind, {
+							Text = tostring(InputType):gsub(Types.Mouse, "MB")
+						})
 					elseif InputType == Enum.UserInputType.Keyboard then
 						Settings.Callback(Key);
-						SetProperty(Bind, { Text = tostring(Key.KeyCode):gsub(Types.Key, "") })
+						SetProperty(Bind, {
+							Text = tostring(Key.KeyCode):gsub(Types.Key, "")
+						})
 					end
 				end 
 			end)
 			table.insert(Connections, Detect)
 		end)
+
 		Animations:Component(Dropdown);
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Dropdown, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
+		SetProperty(Dropdown, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 		table.insert(Connections, KeybindConnection)
 	end
 
@@ -768,15 +854,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Dropdown = Clone(Components["Dropdown"]);
 		local Title, Description = Options:GetLabels(Dropdown);
 		local Text = Dropdown["Main"].Options;
+
 		local DropdownConnection = Connect(Dropdown.MouseButton1Click, function()
 			local Example = Clone(Examples["DropdownExample"]);
 			local Buttons = Example["Top"]["Buttons"];
+
 			Tween(BG, .25, { BackgroundTransparency = 0.6 });
-			SetProperty(Example, { Parent = Window, BackgroundColor3 = Theme.Secondary }); -- 修改：强制背景
+			SetProperty(Example, { Parent = Window });
 			Animations:Open(Example, 0, true)
+
 			for Index, Button in next, Buttons:GetChildren() do
 				if Button:IsA("TextButton") then
 					Animations:Component(Button, true)
+
 					local ButtonConnection = Connect(Button.MouseButton1Click, function()
 						Tween(BG, .25, { BackgroundTransparency = 1 });
 						Animations:Close(Example);
@@ -786,20 +876,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					table.insert(Connections, ButtonConnection)
 				end
 			end
+
 			for Index, Option in next, Settings.Options do
 				local Button = Clone(Examples["DropdownButtonExample"]);
 				local Title, Description = Options:GetLabels(Button);
 				local Selected = Button["Value"];
+
 				Animations:Component(Button);
-				SetProperty(Title, { Text = Index, Font = Enum.Font.Gotham }); -- 修改：字体修复
+				SetProperty(Title, { Text = Index });
 				SetProperty(Button, { Parent = Example.ScrollingFrame, Visible = true });
 				Destroy(Description);
+
 				local OptionConnection = Connect(Button.MouseButton1Click, function() 
 					local NewValue = not Selected.Value 
+
 					if NewValue then
 						Tween(Button, .25, { BackgroundColor3 = Theme.Interactables });
 						Settings.Callback(Option)
 						Text.Text = Index
+
 						for _, Others in next, Example:GetChildren() do
 							if Others:IsA("TextButton") and Others ~= Button then
 								Others.BackgroundColor3 = Theme.Component
@@ -808,6 +903,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					else
 						Tween(Button, .25, { BackgroundColor3 = Theme.Component });
 					end
+
 					Selected.Value = NewValue
 					Tween(BG, .25, { BackgroundTransparency = 1 });
 					Animations:Close(Example);
@@ -817,24 +913,32 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				table.insert(Connections, OptionConnection)
 			end
 		end)
+
 		Animations:Component(Dropdown);
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Dropdown, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
+		SetProperty(Dropdown, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 		table.insert(Connections, DropdownConnection)
 	end
 
 	function Options:AddSlider(Settings: { Title: string, Description: string, MaxValue: number, AllowDecimals: boolean, DecimalAmount: number, Tab: Instance, Callback: any }) 
 		local Slider = Clone(Components["Slider"]);
 		local Title, Description = Options:GetLabels(Slider);
+
 		local Main = Slider["Slider"];
 		local Amount = Main["Main"].Input;
 		local Slide = Main["Slide"];
 		local Fire = Slide["Fire"];
 		local Fill = Slide["Highlight"];
 		local Circle = Fill["Circle"];
+
 		local Active = false
 		local Value = 0
+		
 		local SetNumber = function(Number)
 			if Settings.AllowDecimals then
 				local Power = 10 ^ (Settings.DecimalAmount or 2)
@@ -842,39 +946,51 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			else
 				Number = math.round(Number)
 			end
+			
 			return Number
 		end
+
 		local Update = function(Number)
 			local Scale = (Player.Mouse.X - Slide.AbsolutePosition.X) / Slide.AbsoluteSize.X			
 			Scale = (Scale > 1 and 1) or (Scale < 0 and 0) or Scale
+			
 			if Number then
 				Number = (Number > Settings.MaxValue and Settings.MaxValue) or (Number < 0 and 0) or Number
 			end
+			
 			Value = SetNumber(Number or (Scale * Settings.MaxValue))
 			Amount.Text = Value
 			Fill.Size = UDim2.fromScale((Number and Number / Settings.MaxValue) or Scale, 1)
 			Settings.Callback(Value)
 		end
+
 		local Activate = function()
 			Active = true
 			repeat task.wait()
 				Update()
 			until not Active
 		end
+		
 		local AmountConnection = Connect(Amount.FocusLost, function() 
 			Update(tonumber(Amount.Text) or 0)
 		end)
+
 		local FireConnection = Connect(Fire.MouseButton1Down, Activate)
 		local EndConnection = Connect(Services.Input.InputEnded, function(Input) 
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Active = false
 			end
 		end)
+
 		Fill.Size = UDim2.fromScale(Value, 1);
 		Animations:Component(Slider);
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Slider, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
+		SetProperty(Slider, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 		table.insert(Connections, AmountConnection)
 		table.insert(Connections, FireConnection)
 		table.insert(Connections, EndConnection)
@@ -883,9 +999,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	function Options:AddParagraph(Settings: { Title: string, Description: string, Tab: Instance }) 
 		local Paragraph = Clone(Components["Paragraph"]);
 		local Title, Description = Options:GetLabels(Paragraph);
-		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
+
+		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
-		SetProperty(Paragraph, { Parent = Settings.Tab, Visible = true })
+		SetProperty(Paragraph, {
+			Parent = Settings.Tab,
+			Visible = true,
+		})
 	end
 
 	local Themes = {
@@ -895,41 +1015,44 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Label.BackgroundColor3 = Color(Theme.Component, 5, "Dark");
 				end
 			end,
+			
 			["Title"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
-					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
+
 			["Description"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Description
 				end
 			end,
+			
 			["Section"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
-					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
+
 			["Options"] = function(Label)
 				if Label:IsA("TextLabel") and Label.Parent.Name == "Main" then
 					Label.TextColor3 = Theme.Title
-					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
+			
 			["Notification"] = function(Label)
 				if Label:IsA("CanvasGroup") then
 					Label.BackgroundColor3 = Theme.Primary
 					Label.UIStroke.Color = Theme.Outline
 				end
 			end,
+
 			["TextLabel"] = function(Label)
 				if Label:IsA("TextLabel") and Label.Parent:FindFirstChild("List") then
 					Label.TextColor3 = Theme.Tab
-					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
+
 			["Main"] = function(Label)
 				if Label:IsA("Frame") then
 					if Label.Parent == Window then
@@ -937,6 +1060,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					elseif Label.Parent:FindFirstChild("Value") then
 						local Toggle = Label.Parent.Value 
 						local Circle = Label:FindFirstChild("Circle")
+						
 						if not Toggle.Value then
 							Label.BackgroundColor3 = Theme.Interactables
 							Label.Circle.BackgroundColor3 = Theme.Primary
@@ -948,56 +1072,66 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Label.TextColor3 = Theme.Title
 				end
 			end,
+
 			["Amount"] = function(Label)
 				if Label:IsA("Frame") then
 					Label.BackgroundColor3 = Theme.Interactables
 				end
 			end,
+
 			["Slide"] = function(Label)
 				if Label:IsA("Frame") then
 					Label.BackgroundColor3 = Theme.Interactables
 				end
 			end,
+
 			["Input"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
-					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				elseif Label:FindFirstChild("Labels") then
 					Label.BackgroundColor3 = Theme.Component
 				elseif Label:IsA("TextBox") and Label.Parent.Name == "Main" then
 					Label.TextColor3 = Theme.Title
 				end
 			end,
+
 			["Outline"] = function(Stroke)
 				if Stroke:IsA("UIStroke") then
 					Stroke.Color = Theme.Outline
 					Stroke.Transparency = Setup.Transparency
 				end
 			end,
+
 			["DropdownExample"] = function(Label)
 				Label.BackgroundColor3 = Theme.Secondary
 			end,
+
 			["Underline"] = function(Label)
 				if Label:IsA("Frame") then
 					Label.BackgroundColor3 = Theme.Outline
 				end
 			end,
 		},
+
 		Classes = {
 			["ImageLabel"] = function(Label)
-				Label.ImageColor3 = Theme.Icon
+				if Label.Image ~= "rbxassetid://6644618143" then
+					Label.ImageColor3 = Theme.Icon
+				end
 			end,
+
 			["TextLabel"] = function(Label)
 				if Label:FindFirstChild("Padding") then
 					Label.TextColor3 = Theme.Title
-					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
+
 			["TextButton"] = function(Label)
 				if Label:FindFirstChild("Labels") then
 					Label.BackgroundColor3 = Theme.Component
 				end
-			end,
+		 end,
+
 			["ScrollingFrame"] = function(Label)
 				Label.ScrollBarImageColor3 = Theme.Component
 			end,
@@ -1006,25 +1140,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	function Options:SetTheme(Info)
 		Theme = Info or Theme
+
 		Window.BackgroundColor3 = Theme.Primary
-		Holder.BackgroundColor3 = Theme.Secondary -- 修改：强制更新背景
+		Holder.BackgroundColor3 = Theme.Secondary
 		Window.UIStroke.Color = Theme.Shadow
-		TitleBar.BackgroundColor3 = Theme.Primary
+		TitleBar.BackgroundColor3 = Theme.Primary -- 新增：更新标题栏颜色
 		CloseButton.ImageColor3 = Theme.Icon
 		MinimizeButton.ImageColor3 = Theme.Icon
 		FloatingButton.BackgroundColor3 = Theme.Interactables
 		FloatIcon.ImageColor3 = Theme.Icon
-		-- 修改：强制更新侧边栏和标签
-		for _, child in pairs(Sidebar:GetDescendants()) do
-			if child:IsA("TextLabel") then
-				child.TextColor3 = Theme.Tab
-				child.Font = Enum.Font.Gotham
-			elseif child:IsA("Frame") then
-				child.BackgroundColor3 = Theme.Primary
-			end
-		end
+
 		for Index, Descendant in next, Screen:GetDescendants() do
 			local Name, Class = Themes.Names[Descendant.Name], Themes.Classes[Descendant.ClassName]
+
 			if Name then
 				Name(Descendant);
 			elseif Class then
@@ -1033,6 +1161,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
+	--// Changing Settings
 	function Options:SetSetting(Setting, Value)
 		if Setting == "Size" then
 			Window.Size = Value
@@ -1040,6 +1169,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		elseif Setting == "Transparency" then
 			Window.GroupTransparency = Value
 			Setup.Transparency = Value
+			
 			for Index, Notification in next, Screen:GetDescendants() do
 				if Notification:IsA("CanvasGroup") and Notification.Name == "Notification" then
 					Notification.GroupTransparency = Value
@@ -1047,21 +1177,21 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			FloatingButton.BackgroundTransparency = Value
 			Stroke.Transparency = Value
-			FloatIcon.ImageTransparency = FloatButtonVisible and 0 or 0.5
+			FloatIcon.ImageTransparency = FloatButtonVisible and 0 or 0.5 -- 新增：同步贴花透明度
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title], nil
+			
 			if AlreadyBlurred then
 				Root = Blurs[Settings.Title]["root"]
 			end
+			
 			if Value then
 				BlurEnabled = true
-				pcall(function() -- 修改：安全启用 Blur
-					if not AlreadyBlurred or not Root then
-						Blurs[Settings.Title] = Blur.new(Window, 5)
-					elseif Root and not Root.Parent then
-						Root.Parent = workspace.CurrentCamera
-					end
-				end)
+				if not AlreadyBlurred or not Root then
+					Blurs[Settings.Title] = Blur.new(Window, 5)
+				elseif Root and not Root.Parent then
+					Root.Parent = workspace.CurrentCamera
+				end
 			elseif not Value and (AlreadyBlurred and Root and Root.Parent) then
 				Root.Parent = nil
 				BlurEnabled = false
@@ -1075,6 +1205,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
+	-- 新增：清理函数
 	function Options:Destroy()
 		for _, Connection in ipairs(Connections) do
 			Connection:Disconnect()
@@ -1090,6 +1221,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen });
 	Animations:Open(Window, Settings.Transparency or 0)
+
 	return Options
 end
 
