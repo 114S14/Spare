@@ -1,6 +1,6 @@
 --[=[
 	User Interface Library
-	Made by Late, Modified for Title Bar, Close Button, and Minimize Button
+	Made by Late, Modified for Left-Top Close/Minimize Buttons with Roblox Decals
 ]=]
 
 --// Connections
@@ -235,6 +235,10 @@ function Animations:Component(Component: any, Custom: boolean)
 	Connect(Component.InputBegan, function() 
 		if Custom then
 			Tween(Component, .25, { Transparency = .85 })
+			local Image = Component:FindFirstChild("Icon")
+			if Image then
+				Tween(Image, .25, { ImageTransparency = .85 })
+			end
 		else
 			Tween(Component, .25, { BackgroundColor3 = Color(Theme.Component, 5, Setup.ThemeMode) })
 		end
@@ -242,6 +246,10 @@ function Animations:Component(Component: any, Custom: boolean)
 	Connect(Component.InputEnded, function() 
 		if Custom then
 			Tween(Component, .25, { Transparency = 1 })
+			local Image = Component:FindFirstChild("Icon")
+			if Image then
+				Tween(Image, .25, { ImageTransparency = Setup.Transparency })
+			end
 		else
 			Tween(Component, .25, { BackgroundColor3 = Theme.Component })
 		end
@@ -291,14 +299,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	CloseButton.Name = "CloseButton"
 	CloseButton.Parent = Sidebar:FindFirstChild("Top")
 	CloseButton.Size = UDim2.new(0, 24, 0, 24)
-	CloseButton.Position = UDim2.new(1, -30, 0, -5)
+	CloseButton.Position = UDim2.new(0, 250, 0, -5)
 	CloseButton.BackgroundColor3 = Theme.Interactables
-	CloseButton.Text = "X"
-	CloseButton.TextColor3 = Theme.Title
-	CloseButton.TextSize = 14
+	CloseButton.Text = ""
 	CloseButton.BackgroundTransparency = Setup.Transparency
 	CloseButton.AutoButtonColor = false
 	CloseButton.ZIndex = 6
+	local CloseIcon = Instance.new("ImageLabel")
+	CloseIcon.Name = "Icon"
+	CloseIcon.Parent = CloseButton
+	CloseIcon.Size = UDim2.new(0, 16, 0, 16)
+	CloseIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+	CloseIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	CloseIcon.BackgroundTransparency = 1
+	CloseIcon.Image = "rbxassetid://123456790" -- 替换为关闭按钮贴花 ID
+	CloseIcon.ImageColor3 = Theme.Title
+	CloseIcon.ImageTransparency = Setup.Transparency
+	CloseIcon.ZIndex = 7
 	local CloseCorner = Instance.new("UICorner")
 	CloseCorner.CornerRadius = UDim.new(0, 8)
 	CloseCorner.Parent = CloseButton
@@ -313,14 +330,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	MinimizeButton.Name = "MinimizeButton"
 	MinimizeButton.Parent = Sidebar:FindFirstChild("Top")
 	MinimizeButton.Size = UDim2.new(0, 24, 0, 24)
-	MinimizeButton.Position = UDim2.new(1, -60, 0, -5)
+	MinimizeButton.Position = UDim2.new(0, 220, 0, -5)
 	MinimizeButton.BackgroundColor3 = Theme.Interactables
-	MinimizeButton.Text = "-"
-	MinimizeButton.TextColor3 = Theme.Title
-	MinimizeButton.TextSize = 14
+	MinimizeButton.Text = ""
 	MinimizeButton.BackgroundTransparency = Setup.Transparency
 	MinimizeButton.AutoButtonColor = false
 	MinimizeButton.ZIndex = 6
+	local MinimizeIcon = Instance.new("ImageLabel")
+	MinimizeIcon.Name = "Icon"
+	MinimizeIcon.Parent = MinimizeButton
+	MinimizeIcon.Size = UDim2.new(0, 16, 0, 16)
+	MinimizeIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+	MinimizeIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	MinimizeIcon.BackgroundTransparency = 1
+	MinimizeIcon.Image = "rbxassetid://123456791" -- 替换为缩小按钮贴花 ID（初始为 “-”）
+	MinimizeIcon.ImageColor3 = Theme.Title
+	MinimizeIcon.ImageTransparency = Setup.Transparency
+	MinimizeIcon.ZIndex = 7
 	local MinimizeCorner = Instance.new("UICorner")
 	MinimizeCorner.CornerRadius = UDim.new(0, 8)
 	MinimizeCorner.Parent = MinimizeButton
@@ -363,18 +389,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatingButton.BackgroundColor3 = Theme.Interactables
 	FloatingButton.Size = UDim2.new(0, 50, 0, 50)
 	FloatingButton.Position = UDim2.new(1, -70, 1, -70)
-	FloatingButton.Text = "UI"
-	FloatingButton.TextColor3 = Theme.Title
-	FloatingButton.TextScaled = true
+	FloatingButton.Text = ""
 	FloatingButton.BackgroundTransparency = Setup.Transparency
 	FloatingButton.AutoButtonColor = false
 	FloatingButton.ZIndex = 10
 	FloatingButton.Visible = true
-
+	local FloatIcon = Instance.new("ImageLabel")
+	FloatIcon.Name = "Icon"
+	FloatIcon.Parent = FloatingButton
+	FloatIcon.Size = UDim2.new(0, 32, 0, 32)
+	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	FloatIcon.BackgroundTransparency = 1
+	FloatIcon.Image = "rbxassetid://123456789" -- 替换为悬浮按钮贴花 ID
+	FloatIcon.ImageColor3 = Theme.Title
+	FloatIcon.ImageTransparency = Setup.Transparency
+	FloatIcon.ZIndex = 11
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0, 12)
 	Corner.Parent = FloatingButton
-
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Color = Theme.Outline
 	Stroke.Thickness = 1
@@ -448,6 +481,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			task.wait(0.3)
 			Window.Visible = false
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
+			Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
 			Tween(Stroke, 0.25, { Transparency = 0.5 })
 		else
 			Window.Visible = true
@@ -460,6 +494,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				end
 			end
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
+			Tween(FloatIcon, 0.25, { ImageTransparency = Setup.Transparency })
 			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
 		end
 
@@ -482,11 +517,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		if IsMinimized then
 			Tween(Window, 0.25, { Size = Setup.Size })
 			IsMinimized = false
-			MinimizeButton.Text = "-"
+			MinimizeIcon.Image = "rbxassetid://123456791" -- 替换为缩小按钮贴花 ID（“-”）
 		else
 			Tween(Window, 0.25, { Size = Multiply(Setup.Size, 0.8) })
 			IsMinimized = true
-			MinimizeButton.Text = "+"
+			MinimizeIcon.Image = "rbxassetid://123456792" -- 替换为还原按钮贴花 ID（“+”）
 		end
 
 		task.spawn(function()
@@ -1038,13 +1073,31 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["CloseButton"] = function(Button)
 				if Button:IsA("TextButton") then
 					Button.BackgroundColor3 = Theme.Interactables
-					Button.TextColor3 = Theme.Title
+					local Icon = Button:FindFirstChild("Icon")
+					if Icon then
+						Icon.ImageColor3 = Theme.Title
+						Icon.ImageTransparency = Setup.Transparency
+					end
 				end
 			end,
 			["MinimizeButton"] = function(Button)
 				if Button:IsA("TextButton") then
 					Button.BackgroundColor3 = Theme.Interactables
-					Button.TextColor3 = Theme.Title
+					local Icon = Button:FindFirstChild("Icon")
+					if Icon then
+						Icon.ImageColor3 = Theme.Title
+						Icon.ImageTransparency = Setup.Transparency
+					end
+				end
+			end,
+			["ToggleUIFloatingButton"] = function(Button)
+				if Button:IsA("TextButton") then
+					Button.BackgroundColor3 = Theme.Interactables
+					local Icon = Button:FindFirstChild("Icon")
+					if Icon then
+						Icon.ImageColor3 = Theme.Title
+						Icon.ImageTransparency = Setup.Transparency
+					end
 				end
 			end,
 		},
@@ -1091,7 +1144,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Window.Size = Value
 			Setup.Size = Value
 			IsMinimized = false
-			MinimizeButton.Text = "-"
+			MinimizeIcon.Image = "rbxassetid://123456791" -- 恢复为缩小按钮贴花 ID（“-”）
 		elseif Setting == "Transparency" then
 			Window.GroupTransparency = Value
 			Setup.Transparency = Value
@@ -1101,10 +1154,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				end
 			end
 			FloatingButton.BackgroundTransparency = Value
+			FloatIcon.ImageTransparency = Value
 			Stroke.Transparency = Value
 			CloseButton.BackgroundTransparency = Value
+			CloseIcon.ImageTransparency = Value
 			CloseStroke.Transparency = Value
 			MinimizeButton.BackgroundTransparency = Value
+			MinimizeIcon.ImageTransparency = Value
 			MinimizeStroke.Transparency = Value
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title]
