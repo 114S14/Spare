@@ -401,7 +401,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = "rbxassetid://123456789" -- 替换为悬浮按钮贴花 ID
+	FloatIcon.Image = "rbxassetid://110314286953699" -- 替换为悬浮按钮贴花 ID
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
 	FloatIcon.ZIndex = 11
@@ -421,7 +421,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 		local DragConnection1 = Connect(Button.InputBegan, function(Input)
 			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-				print("开始拖动 FloatingButton")
 				IsDragging = true
 				Dragging = true
 				Start = Input.Position
@@ -448,7 +447,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Dragging = false
 				IsDragging = false
-				print("拖动结束")
 			end
 		end)
 
@@ -463,11 +461,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	--// 切换 UI
 	local ToggleUI = function()
 		if IsToggling then
-			print("切换被阻止：正在处理")
 			return
 		end
 		IsToggling = true
-		print("触发 ToggleUI，当前状态：" .. tostring(Opened))
 
 		if Opened then
 			if BlurEnabled then
@@ -501,18 +497,14 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		task.spawn(function()
 			task.wait(0.4)
 			IsToggling = false
-			print("ToggleUI 完成，IsToggling 重置")
 		end)
 	end
 
-	--// 缩小/还原 UI
 	local ToggleMinimize = function()
 		if IsToggling then
-			print("缩小被阻止：正在处理")
 			return
 		end
 		IsToggling = true
-		print("触发 ToggleMinimize，当前状态：" .. tostring(IsMinimized))
 
 		if IsMinimized then
 			Tween(Window, 0.25, { Size = Setup.Size })
