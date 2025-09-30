@@ -299,6 +299,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Opened = true;
 	local Maximized = false;
 	local BlurEnabled = false
+	local Connections = {} -- 修改：存储事件连接以便清理
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -345,7 +346,51 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Color = Theme.Outline
 	Stroke.Thickness = 1
+	Stroke.Transparency = Setup.Transparency -- 修改：同步描边透明度
 	Stroke.Parent = FloatingButton
+
+	-- 新增：使浮动按钮可拖动
+	local function MakeDraggable(Button)
+		local Dragging, DragInput, Start, StartPosition
+
+		local function Update(input)
+			local delta = input.Position - Start
+			Button.Position = UDim2.new(0, StartPosition.X.Offset + delta.X, 0, StartPosition.Y.Offset + delta.Y)
+		end
+
+		local DragConnection1 = Connect(Button.InputBegan, function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+				Dragging = true
+				Start = Input.Position
+				StartPosition = Button.Position
+
+				local DragConnection2 = Connect(Input.Changed, function()
+					if Input.UserInputState == Enum.UserInputState.End then
+						Dragging = false
+					end
+				end)
+				table.insert(Connections, DragConnection2) -- 修改：存储连接
+			end
+		end)
+
+		local DragConnection3 = Connect(Button.InputChanged, function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+				DragInput = Input
+			end
+		end)
+
+		local DragConnection4 = Connect(Services.Input.InputChanged, function(Input)
+			if Input == DragInput and Dragging then
+				Update(Input)
+			end
+		end)
+
+		table.insert(Connections, DragConnection1)
+		table.insert(Connections, DragConnection3)
+		table.insert(Connections, DragConnection4)
+	end
+
+	MakeDraggable(FloatingButton) -- 新增：应用拖动功能
 
 	--// Animate
 	local ToggleUI = function()
@@ -358,6 +403,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Window.Visible = false
 			-- 按钮动画：缩小并淡出
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
+			Tween(Stroke, 0.25, { Transparency = 0.5 }) -- 修改：同步描边动画
 		else
 			Animations:Open(Window, Setup.Transparency)
 			Opened = true
@@ -366,13 +412,14 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			-- 按钮动画：恢复大小并淡入
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
+			Tween(Stroke, 0.25, { Transparency = Setup.Transparency }) -- 修改：同步描边动画
 		end
 	end
 
 	-- 新增：绑定浮动按钮交互
-	Connect(FloatingButton.MouseButton1Click, ToggleUI) -- PC 端点击
-	Connect(Services.Input.InputBegan, function(Input)
-		if Input.UserInputType == Enum.UserInputType.Touch then
+	local FloatClickConnection = Connect(FloatingButton.MouseButton1Click, ToggleUI) -- PC 端点击
+	local FloatTouchConnection = Connect(Services.Input.InputBegan, function(Input)
+		if Input.UserInputType == Enum.UserInputType.Touch and not Type then -- 修改：避免与调整大小冲突
 			local TouchPos = Input.Position
 			local ButtonPos = FloatingButton.AbsolutePosition
 			local ButtonSize = FloatingButton.AbsoluteSize
@@ -383,6 +430,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 		end
 	end)
+	table.insert(Connections, FloatClickConnection)
+	table.insert(Connections, FloatTouchConnection)
 	Animations:Component(FloatingButton, true) -- 添加悬停动画
 
 	for Index, Button in next, Sidebar.Top.Buttons:GetChildren() do
@@ -390,7 +439,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			local Name = Button.Name
 			Animations:Component(Button, true)
 
-			Connect(Button.MouseButton1Click, function() 
+			local ButtonConnection = Connect(Button.MouseButton1Click, function() 
 				if Name == "Close" then
 					ToggleUI() -- 使用相同的切换函数
 				elseif Name == "Maximize" then
@@ -405,14 +454,16 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					ToggleUI() -- 使用相同的切换函数
 				end
 			end)
+			table.insert(Connections, ButtonConnection) -- 修改：存储连接
 		end
 	end
 
-	Services.Input.InputBegan:Connect(function(Input, Focused) 
+	local KeybindConnection = Services.Input.InputBegan:Connect(function(Input, Focused) 
 		if Input.KeyCode == Setup.Keybind and not Focused then
 			ToggleUI() -- 使用相同的切换函数
 		end
 	end)
+	table.insert(Connections, KeybindConnection) -- 修改：存储连接
 
 	--// Tab Functions
 	function Options:SetTab(Name: string)
@@ -503,9 +554,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Visible = true;
 		});
 
-		Tab.MouseButton1Click:Connect(function()
+		local TabConnection = Tab.MouseButton1Click:Connect(function()
 			Options:SetTab(Tab.Name);
 		end)
+		table.insert(Connections, TabConnection) -- 修改：存储连接
 
 		return Main.ScrollingFrame
 	end
@@ -526,7 +578,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			local Duration = Settings.Duration or 2
 			local Wait = task.wait;
 			
-			Animations:Open(Notification, Setup.Transparency, true); Tween(Timer, Duration, { Size = UDim2.new(0, 0, 0, 4) });
+			Animations:Open(Notification, Setup.Transparency, true); 
+			Tween(Timer, Duration, { Size = UDim2.new(0, 0, 0, 4) });
 			Wait(Duration);
 			Animations:Close(Notification);
 			Wait(1);
@@ -553,7 +606,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Button = Clone(Components["Button"]);
 		local Title, Description = Options:GetLabels(Button);
 
-		Connect(Button.MouseButton1Click, Settings.Callback)
+		local ButtonConnection = Connect(Button.MouseButton1Click, Settings.Callback)
 		Animations:Component(Button)
 		SetProperty(Title, { Text = Settings.Title });
 		SetProperty(Description, { Text = Settings.Description });
@@ -562,6 +615,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
+		table.insert(Connections, ButtonConnection) -- 修改：存储连接
 	end
 
 	function Options:AddInput(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
@@ -569,11 +623,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Title, Description = Options:GetLabels(Input);
 		local TextBox = Input["Main"]["Input"];
 
-		Connect(Input.MouseButton1Click, function() 
+		local InputClickConnection = Connect(Input.MouseButton1Click, function() 
 			TextBox:CaptureFocus()
 		end)
 
-		Connect(TextBox.FocusLost, function() 
+		local InputFocusConnection = Connect(TextBox.FocusLost, function() 
 			Settings.Callback(TextBox.Text)
 		end)
 
@@ -585,6 +639,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
+		table.insert(Connections, InputClickConnection)
+		table.insert(Connections, InputFocusConnection) -- 修改：存储连接
 	end
 
 	function Options:AddToggle(Settings: { Title: string, Description: string, Default: boolean, Tab: Instance, Callback: any }) 
@@ -597,17 +653,17 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		
 		local Set = function(Value)
 			if Value then
-				Tween(Main,   .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) });
+				Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) });
 				Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) });
 			else
-				Tween(Main,   .2, { BackgroundColor3 = Theme.Interactables });
+				Tween(Main, .2, { BackgroundColor3 = Theme.Interactables });
 				Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) });
 			end
 			
 			On.Value = Value
 		end 
 
-		Connect(Toggle.MouseButton1Click, function()
+		local ToggleConnection = Connect(Toggle.MouseButton1Click, function()
 			local Value = not On.Value
 			Set(Value)
 			Settings.Callback(Value)
@@ -622,6 +678,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
+		table.insert(Connections, ToggleConnection) -- 修改：存储连接
 	end
 	
 	function Options:AddKeybind(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
@@ -635,7 +692,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["Key"] = "Enum.KeyCode." 
 		}
 		
-		Connect(Dropdown.MouseButton1Click, function()
+		local KeybindConnection = Connect(Dropdown.MouseButton1Click, function()
 			local Time = tick();
 			local Detect, Finished
 			
@@ -659,6 +716,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					end
 				end 
 			end)
+			table.insert(Connections, Detect) -- 修改：存储连接
 		end)
 
 		Animations:Component(Dropdown);
@@ -669,6 +727,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
+		table.insert(Connections, KeybindConnection) -- 修改：存储连接
 	end
 
 	function Options:AddDropdown(Settings: { Title: string, Description: string, Options: {}, Tab: Instance, Callback: any }) 
@@ -676,7 +735,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Title, Description = Options:GetLabels(Dropdown);
 		local Text = Dropdown["Main"].Options;
 
-		Connect(Dropdown.MouseButton1Click, function()
+		local DropdownConnection = Connect(Dropdown.MouseButton1Click, function()
 			local Example = Clone(Examples["DropdownExample"]);
 			local Buttons = Example["Top"]["Buttons"];
 
@@ -688,12 +747,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				if Button:IsA("TextButton") then
 					Animations:Component(Button, true)
 
-					Connect(Button.MouseButton1Click, function()
+					local ButtonConnection = Connect(Button.MouseButton1Click, function()
 						Tween(BG, .25, { BackgroundTransparency = 1 });
 						Animations:Close(Example);
 						task.wait(2)
 						Destroy(Example);
 					end)
+					table.insert(Connections, ButtonConnection) -- 修改：存储连接
 				end
 			end
 
@@ -707,7 +767,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				SetProperty(Button, { Parent = Example.ScrollingFrame, Visible = true });
 				Destroy(Description);
 
-				Connect(Button.MouseButton1Click, function() 
+				local OptionConnection = Connect(Button.MouseButton1Click, function() 
 					local NewValue = not Selected.Value 
 
 					if NewValue then
@@ -730,6 +790,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					task.wait(2)
 					Destroy(Example);
 				end)
+				table.insert(Connections, OptionConnection) -- 修改：存储连接
 			end
 		end)
 
@@ -741,6 +802,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
+		table.insert(Connections, DropdownConnection) -- 修改：存储连接
 	end
 
 	function Options:AddSlider(Settings: { Title: string, Description: string, MaxValue: number, AllowDecimals: boolean, DecimalAmount: number, Tab: Instance, Callback: any }) 
@@ -784,18 +846,17 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 		local Activate = function()
 			Active = true
-
 			repeat task.wait()
 				Update()
 			until not Active
 		end
 		
-		Connect(Amount.FocusLost, function() 
+		local AmountConnection = Connect(Amount.FocusLost, function() 
 			Update(tonumber(Amount.Text) or 0)
 		end)
 
-		Connect(Fire.MouseButton1Down, Activate)
-		Connect(Services.Input.InputEnded, function(Input) 
+		local FireConnection = Connect(Fire.MouseButton1Down, Activate)
+		local EndConnection = Connect(Services.Input.InputEnded, function(Input) 
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Active = false
 			end
@@ -810,6 +871,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
+		table.insert(Connections, AmountConnection)
+		table.insert(Connections, FireConnection)
+		table.insert(Connections, EndConnection) -- 修改：存储连接
 	end
 
 	function Options:AddParagraph(Settings: { Title: string, Description: string, Tab: Instance }) 
@@ -914,6 +978,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["Outline"] = function(Stroke)
 				if Stroke:IsA("UIStroke") then
 					Stroke.Color = Theme.Outline
+					Stroke.Transparency = Setup.Transparency -- 修改：同步描边透明度
 				end
 			end,
 
@@ -972,7 +1037,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	end
 
 	--// Changing Settings
-	function Options:SetSetting(Setting, Value) --// Available settings - Size, Transparency, Blur, Theme
+	function Options:SetSetting(Setting, Value)
 		if Setting == "Size" then
 			Window.Size = Value
 			Setup.Size = Value
@@ -985,8 +1050,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Notification.GroupTransparency = Value
 				end
 			end
-			-- 新增：更新浮动按钮透明度
+			-- 修改：更新浮动按钮和描边透明度
 			FloatingButton.BackgroundTransparency = Value
+			Stroke.Transparency = Value
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title], nil
 			
@@ -1012,6 +1078,20 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		else
 			warn("Tried to change a setting that doesn't exist or isn't available to change.")
 		end
+	end
+
+	-- 新增：添加清理函数以防止内存泄漏
+	function Options:Destroy()
+		for _, Connection in ipairs(Connections) do
+			Connection:Disconnect()
+		end
+		Connections = {}
+		if Blurs[Settings.Title] then
+			Blurs[Settings.Title].root.Parent = nil
+			Blurs[Settings.Title] = nil
+		end
+		Window:Destroy()
+		FloatingButton:Destroy()
 	end
 
 	SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen });
