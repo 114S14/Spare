@@ -312,7 +312,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	CloseIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	CloseIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	CloseIcon.BackgroundTransparency = 1
-	CloseIcon.Image = "rbxassetid://112010003704785" -- 替换为关闭按钮贴花 ID
+	CloseIcon.Image = "rbxassetid://123456790" -- 替换为关闭按钮贴花 ID
 	CloseIcon.ImageColor3 = Theme.Title
 	CloseIcon.ImageTransparency = Setup.Transparency
 	CloseIcon.ZIndex = 7
