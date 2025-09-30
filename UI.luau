@@ -1,6 +1,6 @@
 --[[
 	User Interface Library
-	Made by Late
+	Made by Late (Fixed for UI Bugs - Text Garbling & Background Glitch)
 ]]
 
 --// Connections
@@ -23,14 +23,14 @@ local Setup = {
 	Size = nil,
 }
 
-local Theme = { --// (Dark Theme)
+local Theme = { --// (Dark Theme) - Increased contrast for text
 	Primary = Color3.fromRGB(30, 30, 30),
 	Secondary = Color3.fromRGB(35, 35, 35),
 	Component = Color3.fromRGB(40, 40, 40),
 	Interactables = Color3.fromRGB(45, 45, 45),
-	Tab = Color3.fromRGB(200, 200, 200),
-	Title = Color3.fromRGB(240,240,240),
-	Description = Color3.fromRGB(200,200,200),
+	Tab = Color3.fromRGB(255, 255, 255), -- 修改：纯白，提高对比度
+	Title = Color3.fromRGB(255, 255, 255), -- 修改：纯白，避免乱码
+	Description = Color3.fromRGB(200, 200, 200),
 	Shadow = Color3.fromRGB(0, 0, 0),
 	Outline = Color3.fromRGB(40, 40, 40),
 	Icon = Color3.fromRGB(220, 220, 220),
@@ -185,10 +185,14 @@ end
 --// Setup [UI]
 if (identifyexecutor) then
 	Screen = Services.Insert:LoadLocalAsset("rbxassetid://18490507748");
-	Blur = loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))();
+	pcall(function() -- 修改：添加错误处理，避免 Blur 加载失败
+		Blur = loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))();
+	end)
 else
 	Screen = (script.Parent);
-	Blur = require(script.Blur)
+	pcall(function() -- 修改：添加错误处理
+		Blur = require(script.Blur)
+	end)
 end
 
 Screen.Main.Visible = false
@@ -235,7 +239,7 @@ end
 function Animations:Component(Component: any, Custom: boolean)	
 	Connect(Component.InputBegan, function() 
 		if Custom then
-			Tween(Component, .25, { ImageTransparency = .85 });
+			Tween(Component, .25, { ImageTransparency = .85 }); -- 修改：针对 ImageButton
 		else
 			Tween(Component, .25, { BackgroundColor3 = Color(Theme.Component, 5, Setup.ThemeMode) });
 		end
@@ -279,9 +283,12 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	Setup.Size = Settings.Size
 	Setup.ThemeMode = Settings.Theme or "Dark"
 
+	-- 修改：默认禁用 Blurring 以避免背景 glitch，允许手动启用
 	if Settings.Blurring then
-		Blurs[Settings.Title] = Blur.new(Window, 5)
-		BlurEnabled = true
+		pcall(function()
+			Blurs[Settings.Title] = Blur.new(Window, 5)
+			BlurEnabled = true
+		end)
 	end
 
 	if Settings.MinimizeKeybind then
@@ -293,18 +300,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	TitleBar.Name = "TitleBar"
 	TitleBar.Parent = Window
 	TitleBar.BackgroundColor3 = Theme.Primary
-	TitleBar.Size = UDim2.new(0, 150, 0, 30) -- 修改：宽度与侧边栏一致
+	TitleBar.Size = UDim2.new(0, 150, 0, 30)
 	TitleBar.Position = UDim2.new(0, 0, 0, 0)
 	TitleBar.ZIndex = 5
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Parent = TitleBar
 	TitleLabel.BackgroundTransparency = 1
 	TitleLabel.Size = UDim2.new(1, -80, 1, 0)
-	TitleLabel.Position = UDim2.new(0, 10, 0, 0) -- 修改：留出左侧边距
+	TitleLabel.Position = UDim2.new(0, 10, 0, 0)
 	TitleLabel.Text = Settings.Title
 	TitleLabel.TextColor3 = Theme.Title
 	TitleLabel.TextScaled = true
-	TitleLabel.Font = Enum.Font.SourceSansBold
+	TitleLabel.Font = Enum.Font.Gotham -- 修改：使用可靠字体，避免乱码
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left -- 修改：左对齐，提高可读性
 	local TitlePadding = Instance.new("UIPadding")
 	TitlePadding.Parent = TitleLabel
 	TitlePadding.PaddingLeft = UDim.new(0, 10)
@@ -313,10 +321,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	-- 修改：创建关闭按钮（移到右侧）
 	local CloseButton = Instance.new("ImageButton")
 	CloseButton.Name = "CloseButton"
-	CloseButton.Parent = Window -- 修改：直接放在 Window 下以覆盖整个宽度
+	CloseButton.Parent = Window
 	CloseButton.BackgroundTransparency = 1
 	CloseButton.Size = UDim2.new(0, 30, 0, 30)
-	CloseButton.Position = UDim2.new(1, -35, 0, 0) -- 修改：右上角
+	CloseButton.Position = UDim2.new(1, -35, 0, 0)
 	CloseButton.Image = "rbxassetid://6644618143"
 	CloseButton.ImageColor3 = Theme.Icon
 	CloseButton.ZIndex = 6
@@ -328,17 +336,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	MinimizeButton.Parent = Window
 	MinimizeButton.BackgroundTransparency = 1
 	MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-	MinimizeButton.Position = UDim2.new(1, -70, 0, 0) -- 修改：右上角，靠近关闭按钮
+	MinimizeButton.Position = UDim2.new(1, -70, 0, 0)
 	MinimizeButton.Image = "rbxassetid://6644618143"
 	MinimizeButton.ImageColor3 = Theme.Icon
 	MinimizeButton.ZIndex = 6
 	MinimizeButton.AutoButtonColor = false
 
-	-- 修改：调整布局以适应标题栏
-	Holder.Position = UDim2.new(0, 150, 0, 0) -- 修改：右移到侧边栏右侧
-	Holder.Size = UDim2.new(1, -150, 1, 0) -- 修改：宽度减去侧边栏
-	Sidebar.Position = UDim2.new(0, 0, 0, 30) -- 修改：下移到标题栏下方
+	-- 修改：调整布局以适应标题栏，并修复背景
+	Holder.Position = UDim2.new(0, 150, 0, 0)
+	Holder.Size = UDim2.new(1, -150, 1, 0)
+	Holder.BackgroundColor3 = Theme.Secondary -- 修改：强制设置背景色，避免 glitch
+	Sidebar.Position = UDim2.new(0, 0, 0, 30)
 	Sidebar.Size = UDim2.new(0, 150, 1, -30)
+	Sidebar.BackgroundColor3 = Theme.Primary -- 修改：强制设置侧边栏背景，避免乱码覆盖
 
 	-- 创建浮动按钮（使用贴花）
 	local FloatingButton = Instance.new("TextButton")
@@ -530,11 +540,17 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	end)
 	table.insert(Connections, KeybindConnection)
 
+	--// Tab Functions (修复：强制更新侧边栏文本颜色和字体)
 	function Options:SetTab(Name: string)
 		for Index, Button in next, Tab:GetChildren() do
 			if Button:IsA("TextButton") then
 				local Opened, SameName = Button.Value, (Button.Name == Name);
 				local Padding = Button:FindFirstChildOfClass("UIPadding");
+				local TextLabel = Button:FindFirstChild("TextLabel") -- 修改：强制更新文本
+				if TextLabel then
+					TextLabel.Font = Enum.Font.Gotham -- 修改：使用可靠字体
+					TextLabel.TextColor3 = Theme.Tab -- 修改：强制纯白
+				end
 				if SameName and not Opened.Value then
 					Tween(Padding, .25, { PaddingLeft = UDim.new(0, 25) });
 					Tween(Button, .25, { BackgroundTransparency = 0.9, Size = UDim2.new(1, -15, 0, 30) });
@@ -553,6 +569,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				if SameName and not Opened.Value then
 					Opened.Value = true
 					Main.Visible = true
+					Main.BackgroundColor3 = Theme.Secondary -- 修改：强制背景色
 					Tween(Main, .3, { GroupTransparency = 0 });
 					Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) });
 				elseif not SameName and Opened.Value then
@@ -578,6 +595,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			LayoutOrder = Settings.Order,
 			Visible = true
 		});
+		local TextLabel = Section:FindFirstChild("TextLabel") -- 修改：修复文本
+		if TextLabel then
+			TextLabel.Font = Enum.Font.Gotham
+			TextLabel.TextColor3 = Theme.Title
+		end
 	end
 
 	function Options:AddTab(Settings: { Title: string, Icon: string, Section: string? })
@@ -597,7 +619,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		SetProperty(Tab["TextLabel"], { Text = Settings.Title });
 		SetProperty(Main, { 
 			Parent = MainExample.Parent,
-			Name = Settings.Title;
+			Name = Settings.Title,
+			BackgroundColor3 = Theme.Secondary -- 修改：强制背景
 		});
 		SetProperty(Tab, { 
 			Parent = Example.Parent,
@@ -605,6 +628,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Name = Settings.Title;
 			Visible = true;
 		});
+		local TabText = Tab:FindFirstChild("TextLabel") -- 修改：修复标签文本
+		if TabText then
+			TabText.Font = Enum.Font.Gotham
+			TabText.TextColor3 = Theme.Tab
+		end
 		local TabConnection = Tab.MouseButton1Click:Connect(function()
 			Options:SetTab(Tab.Name);
 		end)
@@ -639,6 +667,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	function Options:AddSection(Settings: { Name: string, Tab: Instance }) 
 		local Section = Clone(Components["Section"]);
 		SetProperty(Section, { Text = Settings.Name, Parent = Settings.Tab, Visible = true })
+		local TextLabel = Section:FindFirstChild("TextLabel") -- 修改：修复分区文本
+		if TextLabel then
+			TextLabel.Font = Enum.Font.Gotham
+			TextLabel.TextColor3 = Theme.Title
+		end
 	end
 	
 	function Options:AddButton(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
@@ -646,7 +679,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Title, Description = Options:GetLabels(Button);
 		local ButtonConnection = Connect(Button.MouseButton1Click, Settings.Callback)
 		Animations:Component(Button)
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Button, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
 		table.insert(Connections, ButtonConnection)
@@ -663,7 +696,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Settings.Callback(TextBox.Text)
 		end)
 		Animations:Component(Input)
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Input, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
 		table.insert(Connections, InputClickConnection)
@@ -693,7 +726,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end)
 		Animations:Component(Toggle);
 		Set(Settings.Default);
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Toggle, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
 		table.insert(Connections, ToggleConnection)
@@ -725,7 +758,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			table.insert(Connections, Detect)
 		end)
 		Animations:Component(Dropdown);
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Dropdown, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
 		table.insert(Connections, KeybindConnection)
@@ -739,7 +772,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			local Example = Clone(Examples["DropdownExample"]);
 			local Buttons = Example["Top"]["Buttons"];
 			Tween(BG, .25, { BackgroundTransparency = 0.6 });
-			SetProperty(Example, { Parent = Window });
+			SetProperty(Example, { Parent = Window, BackgroundColor3 = Theme.Secondary }); -- 修改：强制背景
 			Animations:Open(Example, 0, true)
 			for Index, Button in next, Buttons:GetChildren() do
 				if Button:IsA("TextButton") then
@@ -758,7 +791,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				local Title, Description = Options:GetLabels(Button);
 				local Selected = Button["Value"];
 				Animations:Component(Button);
-				SetProperty(Title, { Text = Index });
+				SetProperty(Title, { Text = Index, Font = Enum.Font.Gotham }); -- 修改：字体修复
 				SetProperty(Button, { Parent = Example.ScrollingFrame, Visible = true });
 				Destroy(Description);
 				local OptionConnection = Connect(Button.MouseButton1Click, function() 
@@ -785,7 +818,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 		end)
 		Animations:Component(Dropdown);
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Dropdown, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
 		table.insert(Connections, DropdownConnection)
@@ -839,7 +872,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end)
 		Fill.Size = UDim2.fromScale(Value, 1);
 		Animations:Component(Slider);
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Slider, { Name = Settings.Title, Parent = Settings.Tab, Visible = true })
 		table.insert(Connections, AmountConnection)
@@ -850,7 +883,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	function Options:AddParagraph(Settings: { Title: string, Description: string, Tab: Instance }) 
 		local Paragraph = Clone(Components["Paragraph"]);
 		local Title, Description = Options:GetLabels(Paragraph);
-		SetProperty(Title, { Text = Settings.Title });
+		SetProperty(Title, { Text = Settings.Title, Font = Enum.Font.Gotham }); -- 修改：字体修复
 		SetProperty(Description, { Text = Settings.Description });
 		SetProperty(Paragraph, { Parent = Settings.Tab, Visible = true })
 	end
@@ -865,6 +898,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["Title"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
+					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
 			["Description"] = function(Label)
@@ -875,11 +909,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["Section"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
+					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
 			["Options"] = function(Label)
 				if Label:IsA("TextLabel") and Label.Parent.Name == "Main" then
 					Label.TextColor3 = Theme.Title
+					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
 			["Notification"] = function(Label)
@@ -891,6 +927,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["TextLabel"] = function(Label)
 				if Label:IsA("TextLabel") and Label.Parent:FindFirstChild("List") then
 					Label.TextColor3 = Theme.Tab
+					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
 			["Main"] = function(Label)
@@ -924,6 +961,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["Input"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
+					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				elseif Label:FindFirstChild("Labels") then
 					Label.BackgroundColor3 = Theme.Component
 				elseif Label:IsA("TextBox") and Label.Parent.Name == "Main" then
@@ -952,6 +990,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["TextLabel"] = function(Label)
 				if Label:FindFirstChild("Padding") then
 					Label.TextColor3 = Theme.Title
+					Label.Font = Enum.Font.Gotham -- 修改：强制字体
 				end
 			end,
 			["TextButton"] = function(Label)
@@ -968,13 +1007,22 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	function Options:SetTheme(Info)
 		Theme = Info or Theme
 		Window.BackgroundColor3 = Theme.Primary
-		Holder.BackgroundColor3 = Theme.Secondary
+		Holder.BackgroundColor3 = Theme.Secondary -- 修改：强制更新背景
 		Window.UIStroke.Color = Theme.Shadow
 		TitleBar.BackgroundColor3 = Theme.Primary
 		CloseButton.ImageColor3 = Theme.Icon
 		MinimizeButton.ImageColor3 = Theme.Icon
 		FloatingButton.BackgroundColor3 = Theme.Interactables
 		FloatIcon.ImageColor3 = Theme.Icon
+		-- 修改：强制更新侧边栏和标签
+		for _, child in pairs(Sidebar:GetDescendants()) do
+			if child:IsA("TextLabel") then
+				child.TextColor3 = Theme.Tab
+				child.Font = Enum.Font.Gotham
+			elseif child:IsA("Frame") then
+				child.BackgroundColor3 = Theme.Primary
+			end
+		end
 		for Index, Descendant in next, Screen:GetDescendants() do
 			local Name, Class = Themes.Names[Descendant.Name], Themes.Classes[Descendant.ClassName]
 			if Name then
@@ -1007,11 +1055,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			if Value then
 				BlurEnabled = true
-				if not AlreadyBlurred or not Root then
-					Blurs[Settings.Title] = Blur.new(Window, 5)
-				elseif Root and not Root.Parent then
-					Root.Parent = workspace.CurrentCamera
-				end
+				pcall(function() -- 修改：安全启用 Blur
+					if not AlreadyBlurred or not Root then
+						Blurs[Settings.Title] = Blur.new(Window, 5)
+					elseif Root and not Root.Parent then
+						Root.Parent = workspace.CurrentCamera
+					end
+				end)
 			elseif not Value and (AlreadyBlurred and Root and Root.Parent) then
 				Root.Parent = nil
 				BlurEnabled = false
