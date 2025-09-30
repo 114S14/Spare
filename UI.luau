@@ -18,7 +18,7 @@ end
 --// Important 
 local Setup = {
 	Keybind = Enum.KeyCode.LeftControl,
-	Transparency = 0.2,
+	Transparency = 0.2 Ascendancy 2
 	ThemeMode = "Dark",
 	Size = nil,
 }
@@ -271,7 +271,7 @@ end
 function Animations:Component(Component: any, Custom: boolean)	
 	Connect(Component.InputBegan, function() 
 		if Custom then
-			Tween(Component, .25, { Transparency = .85 });
+			Tween(Component, .25, { ImageTransparency = .85 }); -- 修改：支持 ImageButton 的透明度动画
 		else
 			Tween(Component, .25, { BackgroundColor3 = Color(Theme.Component, 5, Setup.ThemeMode) });
 		end
@@ -279,7 +279,7 @@ function Animations:Component(Component: any, Custom: boolean)
 
 	Connect(Component.InputEnded, function() 
 		if Custom then
-			Tween(Component, .25, { Transparency = 1 });
+			Tween(Component, .25, { ImageTransparency = 0 });
 		else
 			Tween(Component, .25, { BackgroundColor3 = Theme.Component });
 		end
@@ -301,7 +301,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local BlurEnabled = false;
 	local Connections = {};
 	local IsToggling = false;
-	local FloatButtonVisible = true; -- 新增：跟踪浮动按钮可见性
+	local FloatButtonVisible = true;
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -325,57 +325,61 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		Setup.Keybind = Settings.MinimizeKeybind
 	end
 
-	-- 新增：创建标题栏
+	-- 新增：创建标题栏（靠左）
 	local TitleBar = Instance.new("Frame")
 	TitleBar.Name = "TitleBar"
 	TitleBar.Parent = Window
 	TitleBar.BackgroundColor3 = Theme.Primary
-	TitleBar.Size = UDim2.new(1, 0, 0, 30)
+	TitleBar.Size = UDim2.new(1, 0, 0, 30) -- 修复：确保标题栏宽度占满窗口
 	TitleBar.Position = UDim2.new(0, 0, 0, 0)
-	TitleBar.ZIndex = 5
+	TitleBar.ZIndex = 10 -- 修复：提高 ZIndex 避免被覆盖
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Parent = TitleBar
 	TitleLabel.BackgroundTransparency = 1
-	TitleLabel.Size = UDim2.new(1, -80, 1, 0)
-	TitleLabel.Position = UDim2.new(0, 80, 0, 0)
+	TitleLabel.Size = UDim2.new(0.7, -10, 1, 0) -- 修改：标题文本靠左，留出右侧按钮空间
+	TitleLabel.Position = UDim2.new(0, 10, 0, 0) -- 修改：靠左对齐
 	TitleLabel.Text = Settings.Title
 	TitleLabel.TextColor3 = Theme.Title
 	TitleLabel.TextScaled = true
 	TitleLabel.Font = Enum.Font.SourceSansBold
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left -- 修改：文本左对齐
 	local TitlePadding = Instance.new("UIPadding")
 	TitlePadding.Parent = TitleLabel
 	TitlePadding.PaddingLeft = UDim.new(0, 10)
 	TitlePadding.PaddingRight = UDim.new(0, 10)
 
-	-- 新增：创建关闭按钮（×贴花）
+	-- 新增：创建关闭按钮（×贴花，右边）
 	local CloseButton = Instance.new("ImageButton")
 	CloseButton.Name = "CloseButton"
 	CloseButton.Parent = TitleBar
 	CloseButton.BackgroundTransparency = 1
 	CloseButton.Size = UDim2.new(0, 30, 0, 30)
-	CloseButton.Position = UDim2.new(0, 5, 0, 0)
+	CloseButton.Position = UDim2.new(1, -35, 0, 0) -- 修改：靠右（留 5 像素边距）
 	CloseButton.Image = "rbxassetid://6644618143" -- ×贴花
 	CloseButton.ImageColor3 = Theme.Icon
-	CloseButton.ZIndex = 6
+	CloseButton.ZIndex = 11 -- 修复：确保按钮在顶层
 	CloseButton.AutoButtonColor = false
 
-	-- 新增：创建缩小按钮
+	-- 新增：创建缩小按钮（右边，关闭按钮左侧）
 	local MinimizeButton = Instance.new("ImageButton")
 	MinimizeButton.Name = "MinimizeButton"
 	MinimizeButton.Parent = TitleBar
 	MinimizeButton.BackgroundTransparency = 1
 	MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-	MinimizeButton.Position = UDim2.new(0, 40, 0, 0)
+	MinimizeButton.Position = UDim2.new(1, -70, 0, 0) -- 修改：靠右（关闭按钮左侧）
 	MinimizeButton.Image = "rbxassetid://6644618143" -- 缩小贴花（可替换）
 	MinimizeButton.ImageColor3 = Theme.Icon
-	MinimizeButton.ZIndex = 6
+	MinimizeButton.ZIndex = 11
 	MinimizeButton.AutoButtonColor = false
 
-	-- 修改：调整主窗口内容位置以适应标题栏
-	Holder.Position = UDim2.new(0, 0, 0, 30)
-	Holder.Size = UDim2.new(1, 0, 1, -30)
+	-- 修复：调整主窗口内容位置以适应标题栏
+	Holder.Position = UDim2.new(0, 150, 0, 30) -- 修复：考虑 Sidebar 宽度
+	Holder.Size = UDim2.new(1, -150, 1, -30) -- 修复：确保内容区域不过分压缩
 	Sidebar.Position = UDim2.new(0, 0, 0, 30)
 	Sidebar.Size = UDim2.new(0, 150, 1, -30)
+	-- 修复：确保 Sidebar 和 Holder 的 ZIndex 低于 TitleBar
+	Holder.ZIndex = 5
+	Sidebar.ZIndex = 5
 
 	-- 新增：创建浮动按钮（使用贴花）
 	local FloatingButton = Instance.new("TextButton")
@@ -384,7 +388,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatingButton.BackgroundColor3 = Theme.Interactables
 	FloatingButton.Size = UDim2.new(0, 50, 0, 50)
 	FloatingButton.Position = UDim2.new(1, -70, 1, -70)
-	FloatingButton.Text = "" -- 修改：移除文字
+	FloatingButton.Text = ""
 	FloatingButton.BackgroundTransparency = Setup.Transparency
 	FloatingButton.AutoButtonColor = false
 	FloatingButton.ZIndex = 10
@@ -397,7 +401,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Size = UDim2.new(0.6, 0, 0.6, 0)
 	FloatIcon.Position = UDim2.new(0.2, 0, 0.2, 0)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = "rbxassetid://6644618143" -- 切换贴花
+	FloatIcon.Image = "rbxassetid://6644618143"
 	FloatIcon.ImageColor3 = Theme.Icon
 	FloatIcon.ZIndex = 11
 
@@ -1115,9 +1119,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 		Classes = {
 			["ImageLabel"] = function(Label)
-				if Label.Image ~= "rbxassetid://6644618143" then
-					Label.ImageColor3 = Theme.Icon
-				end
+				Label.ImageColor3 = Theme.Icon -- 修复：统一所有 ImageLabel 的颜色
 			end,
 
 			["TextLabel"] = function(Label)
@@ -1130,7 +1132,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				if Label:FindFirstChild("Labels") then
 					Label.BackgroundColor3 = Theme.Component
 				end
-		 end,
+			end,
 
 			["ScrollingFrame"] = function(Label)
 				Label.ScrollBarImageColor3 = Theme.Component
@@ -1144,7 +1146,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		Window.BackgroundColor3 = Theme.Primary
 		Holder.BackgroundColor3 = Theme.Secondary
 		Window.UIStroke.Color = Theme.Shadow
-		TitleBar.BackgroundColor3 = Theme.Primary -- 新增：更新标题栏颜色
+		TitleBar.BackgroundColor3 = Theme.Primary
 		CloseButton.ImageColor3 = Theme.Icon
 		MinimizeButton.ImageColor3 = Theme.Icon
 		FloatingButton.BackgroundColor3 = Theme.Interactables
@@ -1177,7 +1179,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			FloatingButton.BackgroundTransparency = Value
 			Stroke.Transparency = Value
-			FloatIcon.ImageTransparency = FloatButtonVisible and 0 or 0.5 -- 新增：同步贴花透明度
+			FloatIcon.ImageTransparency = FloatButtonVisible and 0 or 0.5
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title], nil
 			
