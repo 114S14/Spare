@@ -1,6 +1,6 @@
 --[=[
 	User Interface Library
-	Made by Late, Modified for Title Bar and Button Removal
+	Made by Late, Modified for Title Bar, Close Button, and Minimize Button
 ]=]
 
 --// Connections
@@ -10,9 +10,9 @@ local Wait = game.Loaded.Wait
 local Clone = game.Clone 
 local Destroy = game.Destroy 
 
-if (not game:IsLoaded()) then
+if not game:IsLoaded() then
 	local Loaded = game.Loaded
-	Loaded.Wait(Loaded);
+	Loaded.Wait(Loaded)
 end
 
 --// Important 
@@ -23,7 +23,7 @@ local Setup = {
 	Size = nil,
 }
 
-local Theme = { --// (Dark Theme)
+local Theme = {
 	Primary = Color3.fromRGB(30, 30, 30),
 	Secondary = Color3.fromRGB(35, 35, 35),
 	Component = Color3.fromRGB(40, 40, 40),
@@ -38,20 +38,20 @@ local Theme = { --// (Dark Theme)
 
 --// Services & Functions
 local Type, Blur = nil
-local LocalPlayer = GetService(game, "Players").LocalPlayer;
+local LocalPlayer = GetService(game, "Players").LocalPlayer
 local Services = {
-	Insert = GetService(game, "InsertService");
-	Tween = GetService(game, "TweenService");
-	Run = GetService(game, "RunService");
-	Input = GetService(game, "UserInputService");
+	Insert = GetService(game, "InsertService"),
+	Tween = GetService(game, "TweenService"),
+	Run = GetService(game, "RunService"),
+	Input = GetService(game, "UserInputService"),
 }
 
 local Player = {
-	Mouse = LocalPlayer:GetMouse();
-	GUI = LocalPlayer.PlayerGui;
+	Mouse = LocalPlayer:GetMouse(),
+	GUI = LocalPlayer.PlayerGui,
 }
 
-local Tween = function(Object : Instance, Speed : number, Properties : {},  Info : { EasingStyle: Enum?, EasingDirection: Enum? })
+local Tween = function(Object: Instance, Speed: number, Properties: {}, Info: { EasingStyle: Enum?, EasingDirection: Enum? })
 	local Style, Direction = Info and Info.EasingStyle or Enum.EasingStyle.Sine, Info and Info.EasingDirection or Enum.EasingDirection.Out
 	return Services.Tween:Create(Object, TweenInfo.new(Speed, Style, Direction), Properties):Play()
 end
@@ -259,6 +259,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Options = {}
 	local Examples = {}
 	local Opened = true
+	local IsMinimized = false
 	local BlurEnabled = false
 	local Connections = {}
 	local IsToggling = false
@@ -285,11 +286,55 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	TitleBar.TextYAlignment = Enum.TextYAlignment.Center
 	TitleBar.ZIndex = 5
 
-	--// 删除 Close、Minimize、Maximize 按钮
+	--// 添加关闭按钮
+	local CloseButton = Instance.new("TextButton")
+	CloseButton.Name = "CloseButton"
+	CloseButton.Parent = Sidebar:FindFirstChild("Top")
+	CloseButton.Size = UDim2.new(0, 24, 0, 24)
+	CloseButton.Position = UDim2.new(1, -30, 0, -5)
+	CloseButton.BackgroundColor3 = Theme.Interactables
+	CloseButton.Text = "X"
+	CloseButton.TextColor3 = Theme.Title
+	CloseButton.TextSize = 14
+	CloseButton.BackgroundTransparency = Setup.Transparency
+	CloseButton.AutoButtonColor = false
+	CloseButton.ZIndex = 6
+	local CloseCorner = Instance.new("UICorner")
+	CloseCorner.CornerRadius = UDim.new(0, 8)
+	CloseCorner.Parent = CloseButton
+	local CloseStroke = Instance.new("UIStroke")
+	CloseStroke.Color = Theme.Outline
+	CloseStroke.Thickness = 1
+	CloseStroke.Transparency = Setup.Transparency
+	CloseStroke.Parent = CloseButton
+
+	--// 添加缩小按钮
+	local MinimizeButton = Instance.new("TextButton")
+	MinimizeButton.Name = "MinimizeButton"
+	MinimizeButton.Parent = Sidebar:FindFirstChild("Top")
+	MinimizeButton.Size = UDim2.new(0, 24, 0, 24)
+	MinimizeButton.Position = UDim2.new(1, -60, 0, -5)
+	MinimizeButton.BackgroundColor3 = Theme.Interactables
+	MinimizeButton.Text = "-"
+	MinimizeButton.TextColor3 = Theme.Title
+	MinimizeButton.TextSize = 14
+	MinimizeButton.BackgroundTransparency = Setup.Transparency
+	MinimizeButton.AutoButtonColor = false
+	MinimizeButton.ZIndex = 6
+	local MinimizeCorner = Instance.new("UICorner")
+	MinimizeCorner.CornerRadius = UDim.new(0, 8)
+	MinimizeCorner.Parent = MinimizeButton
+	local MinimizeStroke = Instance.new("UIStroke")
+	MinimizeStroke.Color = Theme.Outline
+	MinimizeStroke.Thickness = 1
+	MinimizeStroke.Transparency = Setup.Transparency
+	MinimizeStroke.Parent = MinimizeButton
+
+	--// 删除原有按钮
 	local Buttons = Sidebar:FindFirstChild("Top"):FindFirstChild("Buttons")
 	if Buttons then
 		for _, Button in pairs(Buttons:GetChildren()) do
-			if Button:IsA("TextButton") and (Button.Name == "Close" or Button.Name == "Minimize" or Button.Name == "Maximize") then
+			if Button:IsA("TextButton") then
 				Button:Destroy()
 			end
 		end
@@ -424,6 +469,47 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			print("ToggleUI 完成，IsToggling 重置")
 		end)
 	end
+
+	--// 缩小/还原 UI
+	local ToggleMinimize = function()
+		if IsToggling then
+			print("缩小被阻止：正在处理")
+			return
+		end
+		IsToggling = true
+		print("触发 ToggleMinimize，当前状态：" .. tostring(IsMinimized))
+
+		if IsMinimized then
+			Tween(Window, 0.25, { Size = Setup.Size })
+			IsMinimized = false
+			MinimizeButton.Text = "-"
+		else
+			Tween(Window, 0.25, { Size = Multiply(Setup.Size, 0.8) })
+			IsMinimized = true
+			MinimizeButton.Text = "+"
+		end
+
+		task.spawn(function()
+			task.wait(0.4)
+			IsToggling = false
+			print("ToggleMinimize 完成，IsToggling 重置")
+		end)
+	end
+
+	--// 绑定关闭和缩小按钮
+	local CloseConnection = Connect(CloseButton.MouseButton1Click, function()
+		print("点击 CloseButton，触发关闭")
+		ToggleUI()
+	end)
+	table.insert(Connections, CloseConnection)
+	Animations:Component(CloseButton, true)
+
+	local MinimizeConnection = Connect(MinimizeButton.MouseButton1Click, function()
+		print("点击 MinimizeButton，触发缩小/还原")
+		ToggleMinimize()
+	end)
+	table.insert(Connections, MinimizeConnection)
+	Animations:Component(MinimizeButton, true)
 
 	--// 绑定浮动按钮交互
 	local lastClickTime = 0
@@ -949,6 +1035,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Label.TextColor3 = Theme.Title
 				end
 			end,
+			["CloseButton"] = function(Button)
+				if Button:IsA("TextButton") then
+					Button.BackgroundColor3 = Theme.Interactables
+					Button.TextColor3 = Theme.Title
+				end
+			end,
+			["MinimizeButton"] = function(Button)
+				if Button:IsA("TextButton") then
+					Button.BackgroundColor3 = Theme.Interactables
+					Button.TextColor3 = Theme.Title
+				end
+			end,
 		},
 		Classes = {
 			["ImageLabel"] = function(Label)
@@ -992,6 +1090,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		if Setting == "Size" then
 			Window.Size = Value
 			Setup.Size = Value
+			IsMinimized = false
+			MinimizeButton.Text = "-"
 		elseif Setting == "Transparency" then
 			Window.GroupTransparency = Value
 			Setup.Transparency = Value
@@ -1002,6 +1102,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 			FloatingButton.BackgroundTransparency = Value
 			Stroke.Transparency = Value
+			CloseButton.BackgroundTransparency = Value
+			CloseStroke.Transparency = Value
+			MinimizeButton.BackgroundTransparency = Value
+			MinimizeStroke.Transparency = Value
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title]
 			if AlreadyBlurred then
