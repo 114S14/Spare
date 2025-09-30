@@ -1,6 +1,6 @@
 --[=[
 	User Interface Library
-	Made by Late, Modified for Left-Top Close/Minimize Buttons with Roblox Decals
+	Made by Late, Modified for Left-Top Close/Minimize Buttons Above TitleBar with Roblox Decals and Fixed Floating Button Drag
 ]=]
 
 --// Connections
@@ -272,6 +272,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Connections = {}
 	local IsToggling = false
 	local IsDragging = false
+	local DragStarted = 0
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -299,7 +300,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	CloseButton.Name = "CloseButton"
 	CloseButton.Parent = Sidebar:FindFirstChild("Top")
 	CloseButton.Size = UDim2.new(0, 24, 0, 24)
-	CloseButton.Position = UDim2.new(0, 250, 0, -5)
+	CloseButton.Position = UDim2.new(0, 250, 0, -30)
 	CloseButton.BackgroundColor3 = Theme.Interactables
 	CloseButton.Text = ""
 	CloseButton.BackgroundTransparency = Setup.Transparency
@@ -330,7 +331,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	MinimizeButton.Name = "MinimizeButton"
 	MinimizeButton.Parent = Sidebar:FindFirstChild("Top")
 	MinimizeButton.Size = UDim2.new(0, 24, 0, 24)
-	MinimizeButton.Position = UDim2.new(0, 220, 0, -5)
+	MinimizeButton.Position = UDim2.new(0, 220, 0, -30)
 	MinimizeButton.BackgroundColor3 = Theme.Interactables
 	MinimizeButton.Text = ""
 	MinimizeButton.BackgroundTransparency = Setup.Transparency
@@ -401,7 +402,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = "rbxassetid://110314286953699" -- 替换为悬浮按钮贴花 ID
+	FloatIcon.Image = "rbxassetid://123456789" -- 替换为悬浮按钮贴花 ID
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
 	FloatIcon.ZIndex = 11
@@ -421,8 +422,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 		local DragConnection1 = Connect(Button.InputBegan, function(Input)
 			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
+				print("开始拖动 FloatingButton")
 				IsDragging = true
 				Dragging = true
+				DragStarted = tick()
 				Start = Input.Position
 				StartPosition = Button.Position
 			end
@@ -447,6 +450,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Dragging = false
 				IsDragging = false
+				print("拖动结束，持续时间：" .. tostring(tick() - DragStarted))
 			end
 		end)
 
@@ -461,9 +465,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	--// 切换 UI
 	local ToggleUI = function()
 		if IsToggling then
+			print("切换被阻止：正在处理")
 			return
 		end
 		IsToggling = true
+		print("触发 ToggleUI，当前状态：" .. tostring(Opened))
 
 		if Opened then
 			if BlurEnabled then
@@ -497,14 +503,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		task.spawn(function()
 			task.wait(0.4)
 			IsToggling = false
+			print("ToggleUI 完成，IsToggling 重置")
 		end)
 	end
 
+	--// 缩小/还原 UI
 	local ToggleMinimize = function()
 		if IsToggling then
+			print("缩小被阻止：正在处理")
 			return
 		end
 		IsToggling = true
+		print("触发 ToggleMinimize，当前状态：" .. tostring(IsMinimized))
 
 		if IsMinimized then
 			Tween(Window, 0.25, { Size = Setup.Size })
@@ -556,22 +566,22 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	table.insert(Connections, FloatClickConnection)
 
 	local FloatTouchConnection = Connect(Services.Input.InputEnded, function(Input)
-		if Input.UserInputType == Enum.UserInputType.Touch and not Type and not IsDragging and not isProcessingTouch then
-			isProcessingTouch = true
-			local TouchPos = Input.Position
-			local ButtonPos = FloatingButton.AbsolutePosition
-			local ButtonSize = FloatingButton.AbsoluteSize
-			if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
-			   TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
-				local currentTime = tick()
-				if currentTime - lastClickTime > clickDelay then
+		if Input.UserInputType == Enum.UserInputType.Touch and not Type and not isProcessingTouch then
+			local currentTime = tick()
+			if currentTime - DragStarted < 0.1 and currentTime - lastClickTime > clickDelay then
+				isProcessingTouch = true
+				local TouchPos = Input.Position
+				local ButtonPos = FloatingButton.AbsolutePosition
+				local ButtonSize = FloatingButton.AbsoluteSize
+				if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
+				   TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
 					lastClickTime = currentTime
 					print("触摸 FloatingButton，触发切换")
 					ToggleUI()
 				end
+				task.wait(0.4)
+				isProcessingTouch = false
 			end
-			task.wait(0.4)
-			isProcessingTouch = false
 		end
 	end)
 	table.insert(Connections, FloatTouchConnection)
