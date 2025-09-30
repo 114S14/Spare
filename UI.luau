@@ -299,7 +299,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Opened = true;
 	local Maximized = false;
 	local BlurEnabled = false
-	local Connections = {} -- 修改：存储事件连接以便清理
+	local Connections = {}
+	local IsToggling = false -- 新增：防抖标志
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -334,8 +335,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatingButton.TextColor3 = Theme.Title
 	FloatingButton.TextScaled = true
 	FloatingButton.BackgroundTransparency = Setup.Transparency
-	FloatingButton.AutoButtonColor = false -- 禁用默认点击效果
-	FloatingButton.ZIndex = 10 -- 确保在其他 UI 之上
+	FloatingButton.AutoButtonColor = false
+	FloatingButton.ZIndex = 10
+	FloatingButton.Visible = true -- 修改：确保按钮始终可见
 
 	-- 添加圆角
 	local Corner = Instance.new("UICorner")
@@ -346,20 +348,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Color = Theme.Outline
 	Stroke.Thickness = 1
-	Stroke.Transparency = Setup.Transparency -- 修改：同步描边透明度
+	Stroke.Transparency = Setup.Transparency
 	Stroke.Parent = FloatingButton
 
-	-- 新增：使浮动按钮可拖动
+	-- 新增：使浮动按钮可拖动（带边界检查）
 	local function MakeDraggable(Button)
 		local Dragging, DragInput, Start, StartPosition
+		local ScreenSize = game:GetService("GuiService"):GetScreenResolution()
 
 		local function Update(input)
 			local delta = input.Position - Start
-			Button.Position = UDim2.new(0, StartPosition.X.Offset + delta.X, 0, StartPosition.Y.Offset + delta.Y)
+			local newX = math.clamp(StartPosition.X.Offset + delta.X, 0, ScreenSize.X - Button.AbsoluteSize.X)
+			local newY = math.clamp(StartPosition.Y.Offset + delta.Y, 0, ScreenSize.Y - Button.AbsoluteSize.Y)
+			Button.Position = UDim2.new(0, newX, 0, newY)
 		end
 
 		local DragConnection1 = Connect(Button.InputBegan, function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
 				Dragging = true
 				Start = Input.Position
 				StartPosition = Button.Position
@@ -369,12 +374,12 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 						Dragging = false
 					end
 				end)
-				table.insert(Connections, DragConnection2) -- 修改：存储连接
+				table.insert(Connections, DragConnection2)
 			end
 		end)
 
 		local DragConnection3 = Connect(Button.InputChanged, function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+			if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
 				DragInput = Input
 			end
 		end)
@@ -390,49 +395,78 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		table.insert(Connections, DragConnection4)
 	end
 
-	MakeDraggable(FloatingButton) -- 新增：应用拖动功能
+	MakeDraggable(FloatingButton)
 
 	--// Animate
 	local ToggleUI = function()
+		if IsToggling then return end -- 新增：防止重复触发
+		IsToggling = true
+
 		if Opened then
 			if BlurEnabled then
-				Blurs[Settings.Title].root.Parent = nil
+				local blur = Blurs[Settings.Title]
+				if blur and blur.root then
+					blur.root.Parent = nil
+				end
 			end
 			Opened = false
 			Animations:Close(Window)
+			task.wait(0.25) -- 修改：等待动画完成
 			Window.Visible = false
-			-- 按钮动画：缩小并淡出
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
-			Tween(Stroke, 0.25, { Transparency = 0.5 }) -- 修改：同步描边动画
+			Tween(Stroke, 0.25, { Transparency = 0.5 })
 		else
+			Window.Visible = true -- 修改：先设置可见性
 			Animations:Open(Window, Setup.Transparency)
 			Opened = true
 			if BlurEnabled then
-				Blurs[Settings.Title].root.Parent = workspace.CurrentCamera
+				local blur = Blurs[Settings.Title]
+				if blur and not blur.root.Parent then
+					blur.root.Parent = workspace.CurrentCamera
+				end
 			end
-			-- 按钮动画：恢复大小并淡入
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
-			Tween(Stroke, 0.25, { Transparency = Setup.Transparency }) -- 修改：同步描边动画
+			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
 		end
+
+		task.spawn(function()
+			task.wait(0.3) -- 修改：稍延长防抖时间
+			IsToggling = false
+		end)
 	end
 
-	-- 新增：绑定浮动按钮交互
-	local FloatClickConnection = Connect(FloatingButton.MouseButton1Click, ToggleUI) -- PC 端点击
-	local FloatTouchConnection = Connect(Services.Input.InputBegan, function(Input)
-		if Input.UserInputType == Enum.UserInputType.Touch and not Type then -- 修改：避免与调整大小冲突
-			local TouchPos = Input.Position
-			local ButtonPos = FloatingButton.AbsolutePosition
-			local ButtonSize = FloatingButton.AbsoluteSize
-			-- 检查触摸点是否在按钮范围内
-			if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
-			   TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
+	-- 新增：绑定浮动按钮交互（分离点击和拖动）
+	local lastClickTime = 0
+	local clickDelay = 0.2 -- 新增：防抖时间（秒）
+	local FloatClickConnection = Connect(FloatingButton.InputBegan, function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			local currentTime = tick()
+			if currentTime - lastClickTime > clickDelay then
+				lastClickTime = currentTime
 				ToggleUI()
 			end
 		end
 	end)
 	table.insert(Connections, FloatClickConnection)
+
+	-- 修改：优化触摸检测
+	local FloatTouchConnection = Connect(Services.Input.InputEnded, function(Input)
+		if Input.UserInputType == Enum.UserInputType.Touch and not Type then
+			local TouchPos = Input.Position
+			local ButtonPos = FloatingButton.AbsolutePosition
+			local ButtonSize = FloatingButton.AbsoluteSize
+			if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
+			   TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
+				local currentTime = tick()
+				if currentTime - lastClickTime > clickDelay then
+					lastClickTime = currentTime
+					ToggleUI()
+				end
+			end
+		end
+	end)
 	table.insert(Connections, FloatTouchConnection)
-	Animations:Component(FloatingButton, true) -- 添加悬停动画
+	Animations:Component(FloatingButton, true)
 
 	for Index, Button in next, Sidebar.Top.Buttons:GetChildren() do
 		if Button:IsA("TextButton") then
@@ -440,8 +474,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Animations:Component(Button, true)
 
 			local ButtonConnection = Connect(Button.MouseButton1Click, function() 
-				if Name == "Close" then
-					ToggleUI() -- 使用相同的切换函数
+				if Name == "Close" or Name == "Minimize" then
+					ToggleUI()
 				elseif Name == "Maximize" then
 					if Maximized then
 						Maximized = false
@@ -450,20 +484,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 						Maximized = true
 						Tween(Window, .15, { Size = UDim2.fromScale(1, 1), Position = UDim2.fromScale(0.5, 0.5 )});
 					end
-				elseif Name == "Minimize" then
-					ToggleUI() -- 使用相同的切换函数
 				end
 			end)
-			table.insert(Connections, ButtonConnection) -- 修改：存储连接
+			table.insert(Connections, ButtonConnection)
 		end
 	end
 
 	local KeybindConnection = Services.Input.InputBegan:Connect(function(Input, Focused) 
 		if Input.KeyCode == Setup.Keybind and not Focused then
-			ToggleUI() -- 使用相同的切换函数
+			ToggleUI()
 		end
 	end)
-	table.insert(Connections, KeybindConnection) -- 修改：存储连接
+	table.insert(Connections, KeybindConnection)
 
 	--// Tab Functions
 	function Options:SetTab(Name: string)
@@ -557,7 +589,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local TabConnection = Tab.MouseButton1Click:Connect(function()
 			Options:SetTab(Tab.Name);
 		end)
-		table.insert(Connections, TabConnection) -- 修改：存储连接
+		table.insert(Connections, TabConnection)
 
 		return Main.ScrollingFrame
 	end
@@ -615,7 +647,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
-		table.insert(Connections, ButtonConnection) -- 修改：存储连接
+		table.insert(Connections, ButtonConnection)
 	end
 
 	function Options:AddInput(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
@@ -640,7 +672,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Visible = true,
 		})
 		table.insert(Connections, InputClickConnection)
-		table.insert(Connections, InputFocusConnection) -- 修改：存储连接
+		table.insert(Connections, InputFocusConnection)
 	end
 
 	function Options:AddToggle(Settings: { Title: string, Description: string, Default: boolean, Tab: Instance, Callback: any }) 
@@ -678,7 +710,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
-		table.insert(Connections, ToggleConnection) -- 修改：存储连接
+		table.insert(Connections, ToggleConnection)
 	end
 	
 	function Options:AddKeybind(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
@@ -716,7 +748,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					end
 				end 
 			end)
-			table.insert(Connections, Detect) -- 修改：存储连接
+			table.insert(Connections, Detect)
 		end)
 
 		Animations:Component(Dropdown);
@@ -727,7 +759,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
-		table.insert(Connections, KeybindConnection) -- 修改：存储连接
+		table.insert(Connections, KeybindConnection)
 	end
 
 	function Options:AddDropdown(Settings: { Title: string, Description: string, Options: {}, Tab: Instance, Callback: any }) 
@@ -753,7 +785,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 						task.wait(2)
 						Destroy(Example);
 					end)
-					table.insert(Connections, ButtonConnection) -- 修改：存储连接
+					table.insert(Connections, ButtonConnection)
 				end
 			end
 
@@ -790,7 +822,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					task.wait(2)
 					Destroy(Example);
 				end)
-				table.insert(Connections, OptionConnection) -- 修改：存储连接
+				table.insert(Connections, OptionConnection)
 			end
 		end)
 
@@ -802,7 +834,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Parent = Settings.Tab,
 			Visible = true,
 		})
-		table.insert(Connections, DropdownConnection) -- 修改：存储连接
+		table.insert(Connections, DropdownConnection)
 	end
 
 	function Options:AddSlider(Settings: { Title: string, Description: string, MaxValue: number, AllowDecimals: boolean, DecimalAmount: number, Tab: Instance, Callback: any }) 
@@ -873,7 +905,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		})
 		table.insert(Connections, AmountConnection)
 		table.insert(Connections, FireConnection)
-		table.insert(Connections, EndConnection) -- 修改：存储连接
+		table.insert(Connections, EndConnection)
 	end
 
 	function Options:AddParagraph(Settings: { Title: string, Description: string, Tab: Instance }) 
@@ -978,7 +1010,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			["Outline"] = function(Stroke)
 				if Stroke:IsA("UIStroke") then
 					Stroke.Color = Theme.Outline
-					Stroke.Transparency = Setup.Transparency -- 修改：同步描边透明度
+					Stroke.Transparency = Setup.Transparency
 				end
 			end,
 
@@ -1050,7 +1082,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Notification.GroupTransparency = Value
 				end
 			end
-			-- 修改：更新浮动按钮和描边透明度
 			FloatingButton.BackgroundTransparency = Value
 			Stroke.Transparency = Value
 		elseif Setting == "Blur" then
@@ -1080,7 +1111,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
-	-- 新增：添加清理函数以防止内存泄漏
+	-- 新增：清理函数
 	function Options:Destroy()
 		for _, Connection in ipairs(Connections) do
 			Connection:Disconnect()
