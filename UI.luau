@@ -2,6 +2,7 @@
 	User Interface Library
 	Made by Late, Modified for Text GUI like VAPE V4
 	Modified to add ActiveTabLabel in top-right corner
+	Modified to add ActiveComponentsLabel below tabs
 ]=]
 
 --// Connections
@@ -204,7 +205,9 @@ local Components = Screen:FindFirstChild("Components")
 local Library = {}
 local StoredInfo = {
 	Sections = {},
-	Tabs = {}
+	Tabs = {},
+	ActiveComponents = {}, -- [新增] 存储当前选项卡的活跃组件
+	CurrentTab = nil, -- [新增] 跟踪当前选项卡
 }
 
 --// Animations [Window]
@@ -273,8 +276,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local IsToggling = false
 	local IsDragging = false
 	local DragStarted = 0
-	-- [新增] 定义 ActiveTabLabel
 	local ActiveTabLabel = nil
+	local ActiveComponentsLabel = nil -- [新增] 活跃组件标签
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -320,7 +323,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
-	--// [新增] 添加右上角的 ActiveTabLabel
+	--// 添加右上角的 ActiveTabLabel
 	ActiveTabLabel = Instance.new("TextLabel")
 	ActiveTabLabel.Name = "ActiveTabLabel"
 	ActiveTabLabel.Parent = Screen
@@ -336,8 +339,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	ActiveTabLabel.TextYAlignment = Enum.TextYAlignment.Center
 	ActiveTabLabel.ZIndex = 10
 	ActiveTabLabel.Visible = true
-	-- 不调用 Drag(ActiveTabLabel)，确保不可拖动
 	print("ActiveTabLabel created: ", ActiveTabLabel ~= nil)
+
+	--// [新增] 添加选项卡下方的 ActiveComponentsLabel
+	ActiveComponentsLabel = Instance.new("TextLabel")
+	ActiveComponentsLabel.Name = "ActiveComponentsLabel"
+	ActiveComponentsLabel.Parent = Window
+	ActiveComponentsLabel.Size = UDim2.new(1, -20, 0, 30)
+	ActiveComponentsLabel.Position = UDim2.new(0, 10, 0, SidebarTop.Size.Y.Offset + Tab.Size.Y.Offset + 10)
+	ActiveComponentsLabel.BackgroundTransparency = 1
+	ActiveComponentsLabel.Text = ""
+	ActiveComponentsLabel.TextColor3 = Theme.Title
+	ActiveComponentsLabel.TextSize = 14
+	ActiveComponentsLabel.Font = Enum.Font.SourceSans
+	ActiveComponentsLabel.TextTransparency = Setup.Transparency
+	ActiveComponentsLabel.TextXAlignment = Enum.TextXAlignment.Left
+	ActiveComponentsLabel.TextYAlignment = Enum.TextYAlignment.Center
+	ActiveComponentsLabel.ZIndex = 5
+	ActiveComponentsLabel.Visible = true
+	print("ActiveComponentsLabel created: ", ActiveComponentsLabel ~= nil)
 
 	--// UI Blur & More
 	Drag(Window)
@@ -383,11 +403,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	Corner.Parent = FloatingButton
 	local Stroke = Instance.new("UIStroke")
 	Stroke.Color = Theme.Outline
-	Stroke.Thickness = 1
 	Stroke.Transparency = Setup.Transparency
 	Stroke.Parent = FloatingButton
 
-	--// 调试 FloatingButton 贴花
 	print("FloatingButton created: ", FloatingButton ~= nil)
 	print("FloatIcon.Image: ", FloatIcon.Image)
 	print("FloatIcon.ImageTransparency: ", FloatIcon.ImageTransparency)
@@ -462,8 +480,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
 			Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
 			Tween(Stroke, 0.25, { Transparency = 0.5 })
-			-- [新增] 隐藏 ActiveTabLabel
 			Tween(ActiveTabLabel, 0.25, { TextTransparency = 1 })
+			Tween(ActiveComponentsLabel, 0.25, { TextTransparency = 1 }) -- [新增]
 		else
 			Window.Visible = true
 			Animations:Open(Window, Setup.Transparency)
@@ -477,8 +495,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
 			Tween(FloatIcon, 0.25, { ImageTransparency = Setup.Transparency })
 			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
-			-- [新增] 显示 ActiveTabLabel
 			Tween(ActiveTabLabel, 0.25, { TextTransparency = Setup.Transparency })
+			Tween(ActiveComponentsLabel, 0.25, { TextTransparency = Setup.Transparency }) -- [新增]
 		end
 
 		task.spawn(function()
@@ -535,8 +553,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	end)
 	table.insert(Connections, KeybindConnection)
 
+	--// [新增] 更新 ActiveComponentsLabel 的函数
+	local function UpdateActiveComponentsLabel()
+		local components = {}
+		for name, data in pairs(StoredInfo.ActiveComponents) do
+			if data.type == "Slider" then
+				table.insert(components, name .. ": " .. data.value)
+			else
+				table.insert(components, name)
+			end
+		end
+		ActiveComponentsLabel.Text = table.concat(components, ", ")
+	end
+
 	--// Tab Functions
 	function Options:SetTab(Name: string)
+		StoredInfo.CurrentTab = Name -- [新增] 更新当前选项卡
+		StoredInfo.ActiveComponents = {} -- [新增] 清空当前选项卡的活跃组件
+		UpdateActiveComponentsLabel() -- [新增] 更新标签
+
 		for Index, Button in next, Tab:GetChildren() do
 			if Button:IsA("TextButton") then
 				local Opened, SameName = Button.Value, (Button.Name == Name)
@@ -562,7 +597,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Main.Visible = true
 					Tween(Main, .3, { GroupTransparency = 0 })
 					Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) })
-					-- [新增] 更新 ActiveTabLabel 的文本
 					ActiveTabLabel.Text = Name
 				elseif not SameName and Opened.Value then
 					Opened.Value = false
@@ -621,7 +655,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end)
 		table.insert(Connections, TabConnection)
 
-		-- [新增] 如果这是第一个选项卡，设置 ActiveTabLabel 的初始文本
 		if not next(StoredInfo.Tabs) then
 			ActiveTabLabel.Text = Settings.Title
 		end
@@ -667,7 +700,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Button = Clone(Components["Button"])
 		local Title, Description = Options:GetLabels(Button)
 
-		local ButtonConnection = Connect(Button.MouseButton1Click, Settings.Callback)
+		local ButtonConnection = Connect(Button.MouseButton1Click, function()
+			if StoredInfo.CurrentTab == Button.Parent.Parent.Parent.Name then -- 确保在当前选项卡
+				StoredInfo.ActiveComponents[Settings.Title] = { type = "Button" }
+				UpdateActiveComponentsLabel()
+				task.spawn(function()
+					task.wait(0.5)
+					StoredInfo.ActiveComponents[Settings.Title] = nil
+					UpdateActiveComponentsLabel()
+				end)
+			end
+			Settings.Callback()
+		end)
 		Animations:Component(Button)
 		SetProperty(Title, { Text = Settings.Title })
 		SetProperty(Description, { Text = Settings.Description })
@@ -714,9 +758,15 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			if Value then
 				Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) })
 				Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
+				if StoredInfo.CurrentTab == Toggle.Parent.Parent.Parent.Name then
+					StoredInfo.ActiveComponents[Settings.Title] = { type = "Toggle" }
+					UpdateActiveComponentsLabel()
+				end
 			else
 				Tween(Main, .2, { BackgroundColor3 = Theme.Interactables })
 				Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) })
+				StoredInfo.ActiveComponents[Settings.Title] = nil
+				UpdateActiveComponentsLabel()
 			end
 			On.Value = Value
 		end 
@@ -861,6 +911,22 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Fill = Slide["Highlight"]
 		local Circle = Fill["Circle"]
 
+		-- [新增] 为滑块添加值标签
+		local SliderValueLabel = Instance.new("TextLabel")
+		SliderValueLabel.Name = "SliderValueLabel"
+		SliderValueLabel.Parent = Slider
+		SliderValueLabel.Size = UDim2.new(0, 50, 0, 20)
+		SliderValueLabel.Position = UDim2.new(1, 10, 0.5, 0)
+		SliderValueLabel.BackgroundTransparency = 1
+		SliderValueLabel.Text = "0"
+		SliderValueLabel.TextColor3 = Theme.Title
+		SliderValueLabel.TextSize = 12
+		SliderValueLabel.Font = Enum.Font.SourceSans
+		SliderValueLabel.TextTransparency = Setup.Transparency
+		SliderValueLabel.TextXAlignment = Enum.TextXAlignment.Left
+		SliderValueLabel.ZIndex = 5
+		SliderValueLabel.Visible = true
+
 		local Active = false
 		local Value = 0
 		
@@ -883,6 +949,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Value = SetNumber(Number or (Scale * Settings.MaxValue))
 			Amount.Text = Value
 			Fill.Size = UDim2.fromScale((Number and Number / Settings.MaxValue) or Scale, 1)
+			SliderValueLabel.Text = tostring(Value) -- [新增] 更新滑块值标签
+			if StoredInfo.CurrentTab == Slider.Parent.Parent.Parent.Name then
+				StoredInfo.ActiveComponents[Settings.Title] = { type = "Slider", value = Value } -- [新增] 更新活跃组件
+				UpdateActiveComponentsLabel()
+			end
 			Settings.Callback(Value)
 		end
 
@@ -1029,8 +1100,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					end
 				end
 			end,
-			-- [新增] 为 ActiveTabLabel 添加主题
 			["ActiveTabLabel"] = function(Label)
+				if Label:IsA("TextLabel") then
+					Label.TextColor3 = Theme.Title
+					Label.TextTransparency = Setup.Transparency
+				end
+			end,
+			["ActiveComponentsLabel"] = function(Label)
+				if Label:IsA("TextLabel") then
+					Label.TextColor3 = Theme.Title
+					Label.TextTransparency = Setup.Transparency
+				end
+			end,
+			["SliderValueLabel"] = function(Label)
 				if Label:IsA("TextLabel") then
 					Label.TextColor3 = Theme.Title
 					Label.TextTransparency = Setup.Transparency
@@ -1090,9 +1172,17 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			FloatingButton.BackgroundTransparency = Value
 			FloatIcon.ImageTransparency = Value
 			Stroke.Transparency = Value
-			-- [新增] 更新 ActiveTabLabel 的透明度
 			if ActiveTabLabel then
 				ActiveTabLabel.TextTransparency = Value
+			end
+			if ActiveComponentsLabel then
+				ActiveComponentsLabel.TextTransparency = Value
+			end
+			-- [新增] 更新滑块值标签的透明度
+			for _, descendant in pairs(Screen:GetDescendants()) do
+				if descendant.Name == "SliderValueLabel" and descendant:IsA("TextLabel") then
+					descendant.TextTransparency = Value
+				end
 			end
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title]
@@ -1133,9 +1223,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 		Screen:Destroy()
 		FloatingButton:Destroy()
-		-- [新增] 销毁 ActiveTabLabel
 		if ActiveTabLabel then
 			ActiveTabLabel:Destroy()
+		end
+		if ActiveComponentsLabel then
+			ActiveComponentsLabel:Destroy()
 		end
 	end
 
