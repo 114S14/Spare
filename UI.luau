@@ -1,6 +1,6 @@
 --[=[
 	User Interface Library
-	Made by Late, Modified to Remove Close Button and Make Floating Button Icon Customizable
+	Made by Late, Modified to Remove Close Button, Make Floating Button Icon Customizable, and Add Text GUI
 ]=]
 
 --// Connections
@@ -203,8 +203,102 @@ local Components = Screen:FindFirstChild("Components")
 local Library = {}
 local StoredInfo = {
 	Sections = {},
-	Tabs = {}
+	Tabs = {},
+	TextGUI = {} -- 新增 TextGUI 存储
 }
+
+--// 创建 TextGUI 模板
+local function CreateTextGUITemplate()
+	local TextGUI = Instance.new("Frame")
+	TextGUI.Name = "TextGUI"
+	TextGUI.Size = UDim2.new(1, -10, 0, 60)
+	TextGUI.BackgroundColor3 = Theme.Component
+	TextGUI.BackgroundTransparency = Setup.Transparency
+
+	local Labels = Instance.new("Frame")
+	Labels.Name = "Labels"
+	Labels.Parent = TextGUI
+	Labels.BackgroundTransparency = 1
+	Labels.Size = UDim2.new(1, 0, 0, 30)
+
+	local Title = Instance.new("TextLabel")
+	Title.Name = "Title"
+	Title.Parent = Labels
+	Title.Size = UDim2.new(1, 0, 0, 15)
+	Title.BackgroundTransparency = 1
+	Title.TextColor3 = Theme.Title
+	Title.TextSize = 14
+	Title.Font = Enum.Font.SourceSansBold
+	Title.TextXAlignment = Enum.TextXAlignment.Left
+
+	local Description = Instance.new("TextLabel")
+	Description.Name = "Description"
+	Description.Parent = Labels
+	Description.Size = UDim2.new(1, 0, 0, 15)
+	Description.Position = UDim2.new(0, 0, 0, 15)
+	Description.BackgroundTransparency = 1
+	Description.TextColor3 = Theme.Description
+	Description.TextSize = 12
+	Description.Font = Enum.Font.SourceSans
+	Description.TextXAlignment = Enum.TextXAlignment.Left
+
+	local Main = Instance.new("Frame")
+	Main.Name = "Main"
+	Main.Parent = TextGUI
+	Main.Size = UDim2.new(1, 0, 0, 30)
+	Main.Position = UDim2.new(0, 0, 0, 30)
+	Main.BackgroundTransparency = 1
+
+	local Input = Instance.new("TextBox")
+	Input.Name = "Input"
+	Input.Parent = Main
+	Input.Size = UDim2.new(1, -10, 0, 20)
+	Input.Position = UDim2.new(0, 5, 0, 5)
+	Input.BackgroundColor3 = Theme.Interactables
+	Input.TextColor3 = Theme.Title
+	Input.TextSize = 14
+	Input.Font = Enum.Font.SourceSans
+	Input.PlaceholderText = "Enter command..."
+	Input.Text = ""
+	Input.ClearTextOnFocus = false
+
+	local Output = Instance.new("Frame")
+	Output.Name = "Output"
+	Output.Parent = Main
+	Output.Size = UDim2.new(1, -10, 0, 20)
+	Output.Position = UDim2.new(0, 5, 0, 30)
+	Output.BackgroundColor3 = Theme.Secondary
+	Output.BackgroundTransparency = 1
+	Output.Visible = false
+
+	local OutputLabel = Instance.new("TextLabel")
+	OutputLabel.Name = "OutputLabel"
+	OutputLabel.Parent = Output
+	OutputLabel.Size = UDim2.new(1, 0, 1, 0)
+	OutputLabel.BackgroundTransparency = 1
+	OutputLabel.TextColor3 = Theme.Description
+	OutputLabel.TextSize = 12
+	OutputLabel.Font = Enum.Font.SourceSans
+	OutputLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Parent = TextGUI
+	Stroke.Color = Theme.Outline
+	Stroke.Thickness = 1
+	Stroke.Transparency = Setup.Transparency
+
+	local Corner = Instance.new("UICorner")
+	Corner.Parent = TextGUI
+	Corner.CornerRadius = UDim.new(0, 4)
+
+	return TextGUI
+end
+
+-- 确保 Components 中有 TextGUI 模板
+if not Components:FindFirstChild("TextGUI") then
+	local TextGUITemplate = CreateTextGUITemplate()
+	TextGUITemplate.Parent = Components
+end
 
 --// Animations [Window]
 function Animations:Open(Window: CanvasGroup, Transparency: number, UseCurrentSize: boolean)
@@ -320,7 +414,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	--// UI Blur & More
 	Drag(Window)
 	Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
-	Setup.Transparency = Settings.Transparency or 0
+	Setup.Transparency{SiS} = Settings.Transparency or 0
 	Setup.Size = Settings.Size
 	Setup.ThemeMode = Settings.Theme or "Dark"
 
@@ -352,7 +446,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png" -- 使用用户指定的贴花或后备
+	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png"
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
 	FloatIcon.ZIndex = 11
@@ -884,6 +978,74 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		table.insert(Connections, EndConnection)
 	end
 
+	-- 新增 TextGUI 方法
+	function Options:AddTextGUI(Settings: { Title: string, Description: string, Tab: Instance, Callback: (string) -> () })
+		if not Components:FindFirstChild("TextGUI") then
+			warn("TextGUI component not found, creating default template")
+			local TextGUITemplate = CreateTextGUITemplate()
+			TextGUITemplate.Parent = Components
+			Examples["TextGUIExample"] = TextGUITemplate
+		end
+
+		local TextGUI = Clone(Components["TextGUI"])
+		local Title, Description = Options:GetLabels(TextGUI)
+		local InputBox = TextGUI["Main"]["Input"]
+		local OutputFrame = TextGUI["Main"]["Output"]
+		local OutputLabel = OutputFrame["OutputLabel"]
+
+		-- 保存 TextGUI 引用
+		StoredInfo.TextGUI[Settings.Title] = TextGUI
+
+		-- 初始化 Text GUI
+		SetProperty(TextGUI, {
+			Name = Settings.Title,
+			Parent = Settings.Tab,
+			Visible = true,
+		})
+		SetProperty(Title, { Text = Settings.Title })
+		SetProperty(Description, { Text = Settings.Description })
+		SetProperty(InputBox, { Text = "", PlaceholderText = "Enter command..." })
+		SetProperty(OutputFrame, { Visible = false })
+
+		-- 应用主题
+		TextGUI.BackgroundColor3 = Theme.Component
+		InputBox.TextColor3 = Theme.Title
+		InputBox.BackgroundColor3 = Theme.Interactables
+		OutputFrame.BackgroundColor3 = Theme.Secondary
+		OutputLabel.TextColor3 = Theme.Description
+
+		-- 动画效果
+		Animations:Component(TextGUI)
+
+		-- 输入处理
+		local InputConnection specializes in Connect(InputBox.FocusLost, function()
+			local command = InputBox.Text
+			if command ~= "" then
+				local result = Settings.Callback(command) or "Command executed"
+				OutputLabel.Text = tostring(result)
+				OutputFrame.Visible = true
+				Tween(OutputFrame, 0.25, { BackgroundTransparency = 0 })
+				task.spawn(function()
+					task.wait(3)
+					Tween(OutputFrame, 0.25, { BackgroundTransparency = 1 })
+					task.wait(0.25)
+					OutputFrame.Visible = false
+				end)
+				InputBox.Text = ""
+			end
+		end)
+
+		-- 点击聚焦
+		local ClickConnection = Connect(TextGUI.MouseButton1Click, function()
+			InputBox:CaptureFocus()
+		end)
+
+		table.insert(Connections, InputConnection)
+		table.insert(Connections, ClickConnection)
+
+		return TextGUI
+	end
+
 	function Options:AddParagraph(Settings: { Title: string, Description: string, Tab: Instance }) 
 		local Paragraph = Clone(Components["Paragraph"])
 		local Title, Description = Options:GetLabels(Paragraph)
@@ -996,6 +1158,27 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					end
 				end
 			end,
+			["TextGUI"] = function(Component)
+				if Component:IsA("Frame") then
+					Component.BackgroundColor3 = Theme.Component
+					local Main = Component:FindFirstChild("Main")
+					if Main then
+						local Input = Main:FindFirstChild("Input")
+						local Output = Main:FindFirstChild("Output")
+						if Input then
+							Input.BackgroundColor3 = Theme.Interactables
+							Input.TextColor3 = Theme.Title
+						end
+						if Output then
+							Output.BackgroundColor3 = Theme.Secondary
+							local OutputLabel = Output:FindFirstChild("OutputLabel")
+							if OutputLabel then
+								OutputLabel.TextColor3 = Theme.Description
+							end
+						end
+					end
+				end
+			end,
 		},
 		Classes = {
 			["ImageLabel"] = function(Label)
@@ -1089,6 +1272,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 		Screen:Destroy()
 		FloatingButton:Destroy()
+		StoredInfo.TextGUI = nil -- 清理 TextGUI 引用
 	end
 
 	SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
