@@ -1,6 +1,6 @@
 --[=[
 	User Interface Library
-	Made by Late, Modified for Text GUI like VAPE V4
+	Made by Late, Modified for Fixed Text GUI and UI Toggle
 ]=]
 
 --// Connections
@@ -12,7 +12,7 @@ local Destroy = game.Destroy
 
 if not game:IsLoaded() then
 	local Loaded = game.Loaded
-	Loaded.Wait(Loaded);
+	Loaded.Wait(Loaded)
 end
 
 --// Important 
@@ -257,7 +257,7 @@ function Animations:Component(Component: any, Custom: boolean)
 end
 
 --// Library [Window]
-function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string?, TextGui: boolean?, TextGuiText: string? })
+function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string?, TextGuiText: string? })
 	local Window = Clone(Screen:WaitForChild("Main"))
 	local Sidebar = Window:FindFirstChild("Sidebar")
 	local Holder = Window:FindFirstChild("Main")
@@ -272,7 +272,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local IsToggling = false
 	local IsDragging = false
 	local DragStarted = 0
-	local TextGuiEnabled = Settings.TextGui or false
 	local TextGuiText = Settings.TextGuiText or "VAPE V4 Text GUI"
 	local TextGui = nil
 
@@ -320,28 +319,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
-	--// 添加 Text GUI
-	if TextGuiEnabled then
-		TextGui = Instance.new("TextLabel")
-		TextGui.Name = "TextGui"
-		TextGui.Parent = Screen
-		TextGui.Size = UDim2.new(0, 200, 0, 50)
-		TextGui.Position = UDim2.new(1, -220, 0, 20)
-		TextGui.BackgroundTransparency = 1
-		TextGui.Text = TextGuiText
-		TextGui.TextColor3 = Theme.Title
-		TextGui.TextSize = 20
-		TextGui.Font = Enum.Font.SourceSansBold
-		TextGui.TextTransparency = Setup.Transparency
-		TextGui.TextXAlignment = Enum.TextXAlignment.Right
-		TextGui.TextYAlignment = Enum.TextYAlignment.Top
-		TextGui.ZIndex = 12
-		TextGui.Visible = true
-		Drag(TextGui) -- 使 Text GUI 可拖动
-		print("TextGui enabled with text: ", TextGuiText)
-	else
-		print("TextGui disabled")
-	end
+	--// 添加 Text GUI（固定位置）
+	TextGui = Instance.new("TextLabel")
+	TextGui.Name = "TextGui"
+	TextGui.Parent = Screen
+	TextGui.Size = UDim2.new(0, 200, 0, 50)
+	TextGui.Position = UDim2.new(1, -220, 0, 20)
+	TextGui.BackgroundTransparency = 1
+	TextGui.Text = TextGuiText
+	TextGui.TextColor3 = Theme.Title
+	TextGui.TextSize = 20
+	TextGui.Font = Enum.Font.SourceSansBold
+	TextGui.TextTransparency = Setup.Transparency
+	TextGui.TextXAlignment = Enum.TextXAlignment.Right
+	TextGui.TextYAlignment = Enum.TextYAlignment.Top
+	TextGui.ZIndex = 12
+	TextGui.Visible = false -- 默认隐藏
+	print("TextGui created with text: ", TextGuiText)
 
 	--// UI Blur & More
 	Drag(Window)
@@ -378,7 +372,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
 	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png" -- 使用用户指定的贴花或后备
+	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png"
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
 	FloatIcon.ZIndex = 11
@@ -534,6 +528,27 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end)
 	table.insert(Connections, KeybindConnection)
+
+	--// 添加 Settings 选项卡和 Text GUI 开关
+	local SettingsTab = Options:AddTab({ Title = "Settings", Icon = "rbxassetid://123456" })
+	Options:AddToggle({
+		Title = "Text GUI Toggle",
+		Description = "Show or hide the Text GUI",
+		Default = false,
+		Tab = SettingsTab,
+		Callback = function(Value)
+			if Value then
+				TextGui.Visible = true
+				Tween(TextGui, 0.25, { TextTransparency = Setup.Transparency })
+				print("TextGui enabled with text: ", TextGuiText)
+			else
+				Tween(TextGui, 0.25, { TextTransparency = 1 })
+				task.wait(0.25)
+				TextGui.Visible = false
+				print("TextGui disabled")
+			end
+		end
+	})
 
 	--// Tab Functions
 	function Options:SetTab(Name: string)
@@ -1081,7 +1096,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			FloatingButton.BackgroundTransparency = Value
 			FloatIcon.ImageTransparency = Value
 			Stroke.Transparency = Value
-			if TextGui then
+			if TextGui and TextGui.Visible then
 				TextGui.TextTransparency = Value
 			end
 		elseif Setting == "Blur" then
@@ -1104,35 +1119,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Options:SetTheme(Value)
 		elseif Setting == "Keybind" then
 			Setup.Keybind = Value
-		elseif Setting == "TextGui" then
-			if Value and not TextGui then
-				TextGui = Instance.new("TextLabel")
-				TextGui.Name = "TextGui"
-				TextGui.Parent = Screen
-				TextGui.Size = UDim2.new(0, 200, 0, 50)
-				TextGui.Position = UDim2.new(1, -220, 0, 20)
-				TextGui.BackgroundTransparency = 1
-				TextGui.Text = TextGuiText
-				TextGui.TextColor3 = Theme.Title
-				TextGui.TextSize = 20
-				TextGui.Font = Enum.Font.SourceSansBold
-				TextGui.TextTransparency = Setup.Transparency
-				TextGui.TextXAlignment = Enum.TextXAlignment.Right
-				TextGui.TextYAlignment = Enum.TextYAlignment.Top
-				TextGui.ZIndex = 12
-				TextGui.Visible = true
-				Drag(TextGui) -- 使 Text GUI 可拖动
-				print("TextGui enabled with text: ", TextGuiText)
-			elseif not Value and TextGui then
-				Tween(TextGui, 0.25, { TextTransparency = 1 })
-				task.wait(0.25)
-				TextGui:Destroy()
-				TextGui = nil
-				print("TextGui disabled")
-			end
 		elseif Setting == "TextGuiText" then
 			TextGuiText = Value
-			if TextGui then
+			if TextGui and TextGui.Visible then
 				TextGui.Text = Value
 			end
 		else
