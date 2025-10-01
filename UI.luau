@@ -1,6 +1,7 @@
 --[=[
 	User Interface Library
 	Made by Late, Modified for Text GUI like VAPE V4
+	Modified to add ActiveTabLabel in top-right corner
 ]=]
 
 --// Connections
@@ -272,6 +273,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local IsToggling = false
 	local IsDragging = false
 	local DragStarted = 0
+	-- [新增] 定义 ActiveTabLabel
+	local ActiveTabLabel = nil
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -316,6 +319,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			end
 		end
 	end
+
+	--// [新增] 添加右上角的 ActiveTabLabel
+	ActiveTabLabel = Instance.new("TextLabel")
+	ActiveTabLabel.Name = "ActiveTabLabel"
+	ActiveTabLabel.Parent = Screen
+	ActiveTabLabel.Size = UDim2.new(0, 200, 0, 30)
+	ActiveTabLabel.Position = UDim2.new(1, -220, 0, 10)
+	ActiveTabLabel.BackgroundTransparency = 1
+	ActiveTabLabel.Text = "No Tab Selected"
+	ActiveTabLabel.TextColor3 = Theme.Title
+	ActiveTabLabel.TextSize = 16
+	ActiveTabLabel.Font = Enum.Font.SourceSansBold
+	ActiveTabLabel.TextTransparency = Setup.Transparency
+	ActiveTabLabel.TextXAlignment = Enum.TextXAlignment.Right
+	ActiveTabLabel.TextYAlignment = Enum.TextYAlignment.Center
+	ActiveTabLabel.ZIndex = 10
+	ActiveTabLabel.Visible = true
+	-- 不调用 Drag(ActiveTabLabel)，确保不可拖动
+	print("ActiveTabLabel created: ", ActiveTabLabel ~= nil)
 
 	--// UI Blur & More
 	Drag(Window)
@@ -440,6 +462,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
 			Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
 			Tween(Stroke, 0.25, { Transparency = 0.5 })
+			-- [新增] 隐藏 ActiveTabLabel
+			Tween(ActiveTabLabel, 0.25, { TextTransparency = 1 })
 		else
 			Window.Visible = true
 			Animations:Open(Window, Setup.Transparency)
@@ -453,6 +477,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
 			Tween(FloatIcon, 0.25, { ImageTransparency = Setup.Transparency })
 			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
+			-- [新增] 显示 ActiveTabLabel
+			Tween(ActiveTabLabel, 0.25, { TextTransparency = Setup.Transparency })
 		end
 
 		task.spawn(function()
@@ -536,6 +562,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Main.Visible = true
 					Tween(Main, .3, { GroupTransparency = 0 })
 					Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) })
+					-- [新增] 更新 ActiveTabLabel 的文本
+					ActiveTabLabel.Text = Name
 				elseif not SameName and Opened.Value then
 					Opened.Value = false
 					Tween(Main, .15, { GroupTransparency = 1 })
@@ -592,6 +620,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Options:SetTab(Tab.Name)
 		end)
 		table.insert(Connections, TabConnection)
+
+		-- [新增] 如果这是第一个选项卡，设置 ActiveTabLabel 的初始文本
+		if not next(StoredInfo.Tabs) then
+			ActiveTabLabel.Text = Settings.Title
+		end
 
 		return Main.ScrollingFrame
 	end
@@ -996,6 +1029,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					end
 				end
 			end,
+			-- [新增] 为 ActiveTabLabel 添加主题
+			["ActiveTabLabel"] = function(Label)
+				if Label:IsA("TextLabel") then
+					Label.TextColor3 = Theme.Title
+					Label.TextTransparency = Setup.Transparency
+				end
+			end,
 		},
 		Classes = {
 			["ImageLabel"] = function(Label)
@@ -1050,6 +1090,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			FloatingButton.BackgroundTransparency = Value
 			FloatIcon.ImageTransparency = Value
 			Stroke.Transparency = Value
+			-- [新增] 更新 ActiveTabLabel 的透明度
+			if ActiveTabLabel then
+				ActiveTabLabel.TextTransparency = Value
+			end
 		elseif Setting == "Blur" then
 			local AlreadyBlurred, Root = Blurs[Settings.Title]
 			if AlreadyBlurred then
@@ -1089,6 +1133,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 		Screen:Destroy()
 		FloatingButton:Destroy()
+		-- [新增] 销毁 ActiveTabLabel
+		if ActiveTabLabel then
+			ActiveTabLabel:Destroy()
+		end
 	end
 
 	SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
