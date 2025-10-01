@@ -2,8 +2,8 @@
 	User Interface Library
 	Made by Late, Modified for Text GUI like VAPE V4
 	Modified to add ActiveTabLabel in top-right corner
-	Modified to add ActiveComponentsLabel below the current tab's CanvasGroup
-	Modified to show slider in ActiveComponentsLabel only when dragging
+	Modified to add ActiveComponentsLabel below the current tab's ScrollingFrame
+	Fixed to ensure ActiveComponentsLabel displays correctly and slider only shows when dragging
 ]=]
 
 --// Connections
@@ -175,7 +175,7 @@ local success, Screen = pcall(function()
 	return Services.Insert:LoadLocalAsset("rbxassetid://18490507748")
 end)
 if not success then
-	warn("Failed to load UI asset: " .. Screen)
+	warn("Failed to load UI asset: " .. tostring(Screen))
 	Screen = script.Parent
 end
 
@@ -187,7 +187,7 @@ local success, Blur = pcall(function()
 	end
 end)
 if not success then
-	warn("Failed to load Blur: " .. Blur)
+	warn("Failed to load Blur: " .. tostring(Blur))
 	Blur = nil
 end
 
@@ -312,7 +312,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	TitleBar.Font = Enum.Font.SourceSansBold
 	TitleBar.TextXAlignment = Enum.TextXAlignment.Left
 	TitleBar.TextYAlignment = Enum.TextYAlignment.Center
-	TitleBar.ZIndex = 5
+	TitleBar.ZIndex = 15
 
 	--// 删除原有按钮
 	local Buttons = SidebarTop:FindFirstChild("Buttons")
@@ -338,7 +338,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	ActiveTabLabel.TextTransparency = Setup.Transparency
 	ActiveTabLabel.TextXAlignment = Enum.TextXAlignment.Right
 	ActiveTabLabel.TextYAlignment = Enum.TextYAlignment.Center
-	ActiveTabLabel.ZIndex = 10
+	ActiveTabLabel.ZIndex = 15
 	ActiveTabLabel.Visible = true
 	print("ActiveTabLabel created: ", ActiveTabLabel ~= nil)
 
@@ -368,7 +368,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatingButton.Text = ""
 	FloatingButton.BackgroundTransparency = Setup.Transparency
 	FloatingButton.AutoButtonColor = false
-	FloatingButton.ZIndex = 10
+	FloatingButton.ZIndex = 15
 	FloatingButton.Visible = true
 	local FloatIcon = Instance.new("ImageLabel")
 	FloatIcon.Name = "Icon"
@@ -380,7 +380,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png"
 	FloatIcon.ImageColor3 = Theme.Title
 	FloatIcon.ImageTransparency = Setup.Transparency
-	FloatIcon.ZIndex = 11
+	FloatIcon.ZIndex = 16
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0, 12)
 	Corner.Parent = FloatingButton
@@ -542,7 +542,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	--// 更新 ActiveComponentsLabel 的函数
 	local function UpdateActiveComponentsLabel()
-		if not ActiveComponentsLabel then return end
+		if not ActiveComponentsLabel then
+			warn("ActiveComponentsLabel is nil, cannot update!")
+			return
+		end
 		local components = {}
 		for name, data in pairs(StoredInfo.ActiveComponents) do
 			if data.type == "Slider" then
@@ -553,7 +556,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 		local text = table.concat(components, ", ")
 		ActiveComponentsLabel.Text = text
-		print("更新 ActiveComponentsLabel: ", text, "ActiveComponents: ", StoredInfo.ActiveComponents)
+		ActiveComponentsLabel.Visible = #components > 0 -- 仅当有内容时显示
+		print("更新 ActiveComponentsLabel: ", text, "ActiveComponents: ", StoredInfo.ActiveComponents, "Position: ", ActiveComponentsLabel.Position)
 	end
 
 	--// Tab Functions
@@ -579,11 +583,17 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		-- 创建新的 ActiveComponentsLabel
 		if currentTabCanvas then
 			local Scroll = currentTabCanvas:FindFirstChild("ScrollingFrame")
+			if not Scroll then
+				warn("ScrollingFrame not found in CanvasGroup: ", Name)
+			end
+			local canvasHeight = Scroll and Scroll.CanvasSize.Y.Offset or 0
+			local absoluteHeight = Scroll and Scroll.AbsoluteSize.Y or 0
+			local offset = math.max(canvasHeight, absoluteHeight) + 10
 			ActiveComponentsLabel = Instance.new("TextLabel")
 			ActiveComponentsLabel.Name = "ActiveComponentsLabel"
 			ActiveComponentsLabel.Parent = currentTabCanvas
 			ActiveComponentsLabel.Size = UDim2.new(1, -20, 0, 30)
-			ActiveComponentsLabel.Position = UDim2.new(0, 10, 0, Scroll and Scroll.AbsoluteSize.Y + 10 or 100)
+			ActiveComponentsLabel.Position = UDim2.new(0, 10, 0, offset)
 			ActiveComponentsLabel.BackgroundTransparency = 1
 			ActiveComponentsLabel.Text = ""
 			ActiveComponentsLabel.TextColor3 = Theme.Title
@@ -592,10 +602,12 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			ActiveComponentsLabel.TextTransparency = Setup.Transparency
 			ActiveComponentsLabel.TextXAlignment = Enum.TextXAlignment.Left
 			ActiveComponentsLabel.TextYAlignment = Enum.TextYAlignment.Center
-			ActiveComponentsLabel.ZIndex = 10
+			ActiveComponentsLabel.ZIndex = 15
 			ActiveComponentsLabel.TextWrapped = true
-			ActiveComponentsLabel.Visible = true
-			print("ActiveComponentsLabel created for tab: ", Name)
+			ActiveComponentsLabel.Visible = false -- 默认隐藏，内容填充后显示
+			print("ActiveComponentsLabel created for tab: ", Name, "Offset: ", offset)
+		else
+			warn("CanvasGroup not found for tab: ", Name)
 		end
 
 		for Index, Button in next, Tab:GetChildren() do
@@ -625,14 +637,16 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) })
 					ActiveTabLabel.Text = Name
 					-- 初始化当前选项卡的活跃组件
-					for _, component in pairs(Scroll:GetDescendants()) do
-						if component:IsA("TextButton") and component:FindFirstChild("Value") then
-							if component.Value.Value then
-								StoredInfo.ActiveComponents[component.Name] = { type = "Toggle" }
+					if Scroll then
+						for _, component in pairs(Scroll:GetDescendants()) do
+							if component:IsA("TextButton") and component:FindFirstChild("Value") then
+								if component.Value.Value then
+									StoredInfo.ActiveComponents[component.Name] = { type = "Toggle" }
+								end
 							end
 						end
+						UpdateActiveComponentsLabel()
 					end
-					UpdateActiveComponentsLabel()
 				elseif not SameName and Opened.Value then
 					Opened.Value = false
 					Tween(Main, .15, { GroupTransparency = 1 })
@@ -726,6 +740,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	end
 
 	function Options:AddSection(Settings: { Name: string, Tab: Instance }) 
+		if not Components["Section"] then
+			warn("Section component not found in Components!")
+			return
+		end
 		local Section = Clone(Components["Section"])
 		SetProperty(Section, {
 			Text = Settings.Name,
@@ -990,7 +1008,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		SliderValueLabel.Font = Enum.Font.SourceSans
 		SliderValueLabel.TextTransparency = Setup.Transparency
 		SliderValueLabel.TextXAlignment = Enum.TextXAlignment.Left
-		SliderValueLabel.ZIndex = 5
+		SliderValueLabel.ZIndex = 15
 		SliderValueLabel.Visible = true
 
 		local Active = false
@@ -1017,7 +1035,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Fill.Size = UDim2.fromScale((Number and Number / Settings.MaxValue) or Scale, 1)
 			SliderValueLabel.Text = tostring(Value)
 			if Active and StoredInfo.CurrentTab == Settings.Tab.Parent.Name then
-				print("滑块拖动: ", Settings.Title, "值: ", Value, "选项卡: ", StoredInfo.CurrentTab)
 				StoredInfo.ActiveComponents[Settings.Title] = { type = "Slider", value = Value }
 				UpdateActiveComponentsLabel()
 			end
@@ -1030,6 +1047,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				StoredInfo.ActiveComponents[Settings.Title] = { type = "Slider", value = Value }
 				UpdateActiveComponentsLabel()
 			end
+			print("滑块拖动开始: ", Settings.Title, "选项卡: ", StoredInfo.CurrentTab)
 			repeat task.wait()
 				Update()
 			until not Active
@@ -1041,7 +1059,17 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 		
 		local AmountConnection = Connect(Amount.FocusLost, function() 
-			Update(tonumber(Amount.Text) or 0)
+			local number = tonumber(Amount.Text) or 0
+			if StoredInfo.CurrentTab == Settings.Tab.Parent.Name then
+				StoredInfo.ActiveComponents[Settings.Title] = { type = "Slider", value = number }
+				UpdateActiveComponentsLabel()
+				task.spawn(function()
+					task.wait(0.5)
+					StoredInfo.ActiveComponents[Settings.Title] = nil
+					UpdateActiveComponentsLabel()
+				end)
+			end
+			Update(number)
 		end)
 		local FireConnection = Connect(Fire.MouseButton1Down, Activate)
 		local EndConnection = Connect(Services.Input.InputEnded, function(Input) 
@@ -1051,6 +1079,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					StoredInfo.ActiveComponents[Settings.Title] = nil
 					UpdateActiveComponentsLabel()
 				end
+				print("滑块拖动结束: ", Settings.Title, "选项卡: ", StoredInfo.CurrentTab)
 			end
 		end)
 
