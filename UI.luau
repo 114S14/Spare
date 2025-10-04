@@ -1,6 +1,7 @@
 --[=[
 	User Interface Library
 	Made by Late, Modified for Text GUI like VAPE V4
+	Optimized Floating Button with Debounce and Enhanced UX
 ]=]
 
 --// Connections
@@ -12,7 +13,7 @@ local Destroy = game.Destroy
 
 if not game:IsLoaded() then
 	local Loaded = game.Loaded
-	Loaded.Wait(Loaded);
+	Loaded.Wait(Loaded)
 end
 
 --// Important 
@@ -172,8 +173,35 @@ local success, Screen = pcall(function()
 	return Services.Insert:LoadLocalAsset("rbxassetid://18490507748")
 end)
 if not success then
-	warn("Failed to load UI asset: " .. Screen)
-	Screen = script.Parent
+	warn("无法加载 UI 资产: " .. tostring(Screen))
+	Screen = Instance.new("ScreenGui")
+	Screen.Name = "CustomUI"
+	Screen.IgnoreGuiInset = true
+	local Main = Instance.new("CanvasGroup")
+	Main.Name = "Main"
+	Main.Parent = Screen
+	Main.Size = Setup.Size or UDim2.new(0, 400, 0, 300)
+	Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+	Main.AnchorPoint = Vector2.new(0.5, 0.5)
+	Main.BackgroundColor3 = Theme.Primary
+	local Sidebar = Instance.new("Frame")
+	Sidebar.Name = "Sidebar"
+	Sidebar.Parent = Main
+	Sidebar.Size = UDim2.new(0, 150, 1, 0)
+	Sidebar.BackgroundColor3 = Theme.Secondary
+	local Top = Instance.new("Frame")
+	Top.Name = "Top"
+	Top.Parent = Sidebar
+	Top.BackgroundTransparency = 1
+	Top.Size = UDim2.new(1, 0, 0, 50)
+	Top.Position = UDim2.new(0, 0, 0, 0)
+	local Holder = Instance.new("Frame")
+	Holder.Name = "Main"
+	Holder.Parent = Main
+	Holder.Size = UDim2.new(1, -150, 1, 0)
+	Holder.Position = UDim2.new(0, 150, 0, 0)
+	Holder.BackgroundColor3 = Theme.Secondary
+	print("已创建备用 UI 结构")
 end
 
 local success, Blur = pcall(function()
@@ -184,8 +212,9 @@ local success, Blur = pcall(function()
 	end
 end)
 if not success then
-	warn("Failed to load Blur: " .. Blur)
+	warn("无法加载模糊效果: " .. tostring(Blur))
 	Blur = nil
+	print("模糊效果已禁用")
 end
 
 Screen.Main.Visible = false
@@ -256,6 +285,172 @@ function Animations:Component(Component: any, Custom: boolean)
 	end)
 end
 
+--// Optimized Floating Button
+local function MakeDraggable(Button)
+	local Dragging, DragInput, Start, StartPosition
+	local ScreenSize = Services.GuiService:GetScreenResolution()
+	local Connections = {}
+
+	local DragStartConnection = Connect(Button.InputBegan, function(Input)
+		if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
+			print("开始拖动 FloatingButton")
+			Dragging = true
+			Start = Input.Position
+			StartPosition = Button.Position
+		end
+	end)
+
+	local DragChangeConnection = Connect(Button.InputChanged, function(Input)
+		if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
+			DragInput = Input
+		end
+	end)
+
+	local DragMoveConnection = Connect(Services.Input.InputChanged, function(Input)
+		if Input == DragInput and Dragging and not Type then
+			local delta = Input.Position - Start
+			local newX = math.clamp(StartPosition.X.Offset + delta.X, 0, ScreenSize.X - Button.AbsoluteSize.X)
+			local newY = math.clamp(StartPosition.Y.Offset + delta.Y, 0, ScreenSize.Y - Button.AbsoluteSize.Y)
+			Button.Position = UDim2.new(0, newX, 0, newY)
+		end
+	end)
+
+	local DragEndConnection = Connect(Services.Input.InputEnded, function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			Dragging = false
+			print("拖动结束")
+		end
+	end)
+
+	table.insert(Connections, DragStartConnection)
+	table.insert(Connections, DragChangeConnection)
+	table.insert(Connections, DragMoveConnection)
+	table.insert(Connections, DragEndConnection)
+	return Connections
+end
+
+local function ToggleUI(Window, FloatingButton, FloatIcon, Stroke, BlurEnabled, Settings)
+	local IsToggling = false
+	if IsToggling then
+		print("切换被阻止：正在处理")
+		return
+	end
+	IsToggling = true
+	print("触发 ToggleUI，当前状态：" .. tostring(Opened))
+
+	-- 添加点击缩放动画
+	local originalSize = FloatingButton.Size
+	Tween(FloatingButton, 0.1, { Size = UDim2.new(0, originalSize.X.Offset * 0.9, 0, originalSize.Y.Offset * 0.9) })
+	task.wait(0.1)
+	Tween(FloatingButton, 0.1, { Size = originalSize })
+
+	if Opened then
+		if BlurEnabled then
+			local blur = Blurs[Settings.Title]
+			if blur and blur.root then
+				blur.root.Parent = nil
+			end
+		end
+		Opened = false
+		Animations:Close(Window)
+		task.wait(0.3)
+		Window.Visible = false
+		Tween(FloatingButton, 0.25, { BackgroundTransparency = 0.5 })
+		Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
+		Tween(Stroke, 0.25, { Transparency = 0.5 })
+	else
+		Window.Visible = true
+		Animations:Open(Window, Setup.Transparency)
+		Opened = true
+		if BlurEnabled then
+			local blur = Blurs[Settings.Title]
+			if blur and not blur.root.Parent then
+				blur.root.Parent = workspace.CurrentCamera
+			end
+		end
+		Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
+		Tween(FloatIcon, 0.25, { ImageTransparency = Setup.Transparency })
+		Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
+	end
+
+	task.spawn(function()
+		task.wait(0.4)
+		IsToggling = false
+		print("ToggleUI 完成，IsToggling 重置")
+	end)
+end
+
+local function CreateFloatingButton(Window, Settings, Connections)
+	local FloatingButton = Instance.new("TextButton")
+	FloatingButton.Name = "ToggleUIFloatingButton"
+	FloatingButton.Parent = Screen
+	FloatingButton.BackgroundColor3 = Theme.Interactables
+	FloatingButton.Size = UDim2.new(0, 50, 0, 50)
+	FloatingButton.Position = UDim2.new(1, -70, 1, -70)
+	FloatingButton.Text = ""
+	FloatingButton.BackgroundTransparency = Setup.Transparency
+	FloatingButton.AutoButtonColor = false
+	FloatingButton.ZIndex = 10
+	FloatingButton.Visible = true
+
+	local FloatIcon = Instance.new("ImageLabel")
+	FloatIcon.Name = "Icon"
+	FloatIcon.Parent = FloatingButton
+	FloatIcon.Size = UDim2.new(0, 32, 0, 32)
+	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+	FloatIcon.BackgroundTransparency = 1
+	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png"
+	FloatIcon.ImageColor3 = Theme.Title
+	FloatIcon.ImageTransparency = Setup.Transparency
+	FloatIcon.ZIndex = 11
+
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0, 12)
+	Corner.Parent = FloatingButton
+
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = Theme.Outline
+	Stroke.Thickness = 1
+	Stroke.Transparency = Setup.Transparency
+	Stroke.Parent = FloatingButton
+
+	print("FloatingButton 创建完成，Icon: " .. FloatIcon.Image)
+
+	local DragConnections = MakeDraggable(FloatingButton)
+	for _, Connection in ipairs(DragConnections) do
+		table.insert(Connections, Connection)
+	end
+
+	local lastClickTime = 0
+	local clickDelay = 0.5
+	local isDragging = false
+	local dragStartTime = 0
+
+	local FloatClickConnection = Connect(FloatingButton.InputBegan, function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = true
+			dragStartTime = tick()
+		end
+	end)
+
+	local FloatReleaseConnection = Connect(Services.Input.InputEnded, function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			local currentTime = tick()
+			isDragging = false
+			if currentTime - dragStartTime < 0.2 and currentTime - lastClickTime > clickDelay then
+				lastClickTime = currentTime
+				print("FloatingButton 点击，触发切换")
+				ToggleUI(Window, FloatingButton, FloatIcon, Stroke, BlurEnabled, Settings)
+			end
+		end
+	end)
+
+	Animations:Component(FloatingButton, true)
+	table.insert(Connections, FloatClickConnection)
+	table.insert(Connections, FloatReleaseConnection)
+end
+
 --// Library [Window]
 function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string? })
 	local Window = Clone(Screen:WaitForChild("Main"))
@@ -269,9 +464,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	local Opened = true
 	local BlurEnabled = false
 	local Connections = {}
-	local IsToggling = false
-	local IsDragging = false
-	local DragStarted = 0
 
 	for Index, Example in next, Window:GetDescendants() do
 		if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -279,20 +471,20 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
-	--// 检查 Sidebar.Top 是否存在
+	-- 检查并创建 Sidebar.Top
 	local SidebarTop = Sidebar:FindFirstChild("Top")
 	if not SidebarTop then
-		warn("Sidebar.Top not found! Creating new Top frame.")
+		warn("Sidebar.Top 未找到，创建新实例")
 		SidebarTop = Instance.new("Frame")
 		SidebarTop.Name = "Top"
 		SidebarTop.Parent = Sidebar
 		SidebarTop.BackgroundTransparency = 1
 		SidebarTop.Size = UDim2.new(1, 0, 0, 50)
 		SidebarTop.Position = UDim2.new(0, 0, 0, 0)
+		print("Sidebar.Top 已创建")
 	end
-	print("Sidebar.Top exists: ", SidebarTop ~= nil)
 
-	--// 添加标题栏
+	-- 添加标题栏
 	local TitleBar = Instance.new("TextLabel")
 	TitleBar.Name = "TitleBar"
 	TitleBar.Parent = SidebarTop
@@ -307,7 +499,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	TitleBar.TextYAlignment = Enum.TextYAlignment.Center
 	TitleBar.ZIndex = 5
 
-	--// 删除原有按钮
+	-- 删除原有按钮
 	local Buttons = SidebarTop:FindFirstChild("Buttons")
 	if Buttons then
 		for _, Button in pairs(Buttons:GetChildren()) do
@@ -317,7 +509,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
-	--// UI Blur & More
+	-- UI 初始化
 	Drag(Window)
 	Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
 	Setup.Transparency = Settings.Transparency or 0
@@ -333,183 +525,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		Setup.Keybind = Settings.MinimizeKeybind
 	end
 
-	--// 创建浮动按钮
-	local FloatingButton = Instance.new("TextButton")
-	FloatingButton.Name = "ToggleUIFloatingButton"
-	FloatingButton.Parent = Screen
-	FloatingButton.BackgroundColor3 = Theme.Interactables
-	FloatingButton.Size = UDim2.new(0, 50, 0, 50)
-	FloatingButton.Position = UDim2.new(1, -70, 1, -70)
-	FloatingButton.Text = ""
-	FloatingButton.BackgroundTransparency = Setup.Transparency
-	FloatingButton.AutoButtonColor = false
-	FloatingButton.ZIndex = 10
-	FloatingButton.Visible = true
-	local FloatIcon = Instance.new("ImageLabel")
-	FloatIcon.Name = "Icon"
-	FloatIcon.Parent = FloatingButton
-	FloatIcon.Size = UDim2.new(0, 32, 0, 32)
-	FloatIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-	FloatIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-	FloatIcon.BackgroundTransparency = 1
-	FloatIcon.Image = Settings.FloatingIcon or "rbxasset://textures/ui/GuiImagePlaceholder.png"
-	FloatIcon.ImageColor3 = Theme.Title
-	FloatIcon.ImageTransparency = Setup.Transparency
-	FloatIcon.ZIndex = 11
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, 12)
-	Corner.Parent = FloatingButton
-	local Stroke = Instance.new("UIStroke")
-	Stroke.Color = Theme.Outline
-	Stroke.Thickness = 1
-	Stroke.Transparency = Setup.Transparency
-	Stroke.Parent = FloatingButton
+	-- 创建优化后的浮动按钮
+	CreateFloatingButton(Window, Settings, Connections)
 
-	--// 调试 FloatingButton 贴花
-	print("FloatingButton created: ", FloatingButton ~= nil)
-	print("FloatIcon.Image: ", FloatIcon.Image)
-	print("FloatIcon.ImageTransparency: ", FloatIcon.ImageTransparency)
-
-	--// 使浮动按钮可拖动
-	local function MakeDraggable(Button)
-		local Dragging, DragInput, Start, StartPosition
-		local ScreenSize = game:GetService("GuiService"):GetScreenResolution()
-
-		local DragConnection1 = Connect(Button.InputBegan, function(Input)
-			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-				print("开始拖动 FloatingButton")
-				IsDragging = true
-				Dragging = true
-				DragStarted = tick()
-				Start = Input.Position
-				StartPosition = Button.Position
-			end
-		end)
-
-		local DragConnection2 = Connect(Button.InputChanged, function(Input)
-			if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-				DragInput = Input
-			end
-		end)
-
-		local DragConnection3 = Connect(Services.Input.InputChanged, function(Input)
-			if Input == DragInput and Dragging and not Type then
-				local delta = Input.Position - Start
-				local newX = math.clamp(StartPosition.X.Offset + delta.X, 0, ScreenSize.X - Button.AbsoluteSize.X)
-				local newY = math.clamp(StartPosition.Y.Offset + delta.Y, 0, ScreenSize.Y - Button.AbsoluteSize.Y)
-				Button.Position = UDim2.new(0, newX, 0, newY)
-			end
-		end)
-
-		local DragConnection4 = Connect(Services.Input.InputEnded, function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-				Dragging = false
-				IsDragging = false
-				print("拖动结束，持续时间：" .. tostring(tick() - DragStarted))
-			end
-		end)
-
-		table.insert(Connections, DragConnection1)
-		table.insert(Connections, DragConnection2)
-		table.insert(Connections, DragConnection3)
-		table.insert(Connections, DragConnection4)
-	end
-
-	MakeDraggable(FloatingButton)
-
-	--// 切换 UI
-	local ToggleUI = function()
-		if IsToggling then
-			print("切换被阻止：正在处理")
-			return
-		end
-		IsToggling = true
-		print("触发 ToggleUI，当前状态：" .. tostring(Opened))
-
-		if Opened then
-			if BlurEnabled then
-				local blur = Blurs[Settings.Title]
-				if blur and blur.root then
-					blur.root.Parent = nil
-				end
-			end
-			Opened = false
-			Animations:Close(Window)
-			task.wait(0.3)
-			Window.Visible = false
-			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 40, 0, 40), BackgroundTransparency = 0.5 })
-			Tween(FloatIcon, 0.25, { ImageTransparency = 0.5 })
-			Tween(Stroke, 0.25, { Transparency = 0.5 })
-		else
-			Window.Visible = true
-			Animations:Open(Window, Setup.Transparency)
-			Opened = true
-			if BlurEnabled then
-				local blur = Blurs[Settings.Title]
-				if blur and not blur.root.Parent then
-					blur.root.Parent = workspace.CurrentCamera
-				end
-			end
-			Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
-			Tween(FloatIcon, 0.25, { ImageTransparency = Setup.Transparency })
-			Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
-		end
-
-		task.spawn(function()
-			task.wait(0.4)
-			IsToggling = false
-			print("ToggleUI 完成，IsToggling 重置")
-		end)
-	end
-
-	--// 绑定浮动按钮交互
-	local lastClickTime = 0
-	local clickDelay = 0.4
-	local isProcessingTouch = false
-
-	local FloatClickConnection = Connect(FloatingButton.InputBegan, function(Input)
-		if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not IsDragging then
-			local currentTime = tick()
-			if currentTime - lastClickTime > clickDelay then
-				lastClickTime = currentTime
-				print("点击 FloatingButton，触发切换")
-				ToggleUI()
-			end
-		end
-	end)
-	table.insert(Connections, FloatClickConnection)
-
-	local FloatTouchConnection = Connect(Services.Input.InputEnded, function(Input)
-		if Input.UserInputType == Enum.UserInputType.Touch and not Type and not isProcessingTouch then
-			local currentTime = tick()
-			if currentTime - DragStarted < 0.1 and currentTime - lastClickTime > clickDelay then
-				isProcessingTouch = true
-				local TouchPos = Input.Position
-				local ButtonPos = FloatingButton.AbsolutePosition
-				local ButtonSize = FloatingButton.AbsoluteSize
-				if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
-				   TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
-					lastClickTime = currentTime
-					print("触摸 FloatingButton，触发切换")
-					ToggleUI()
-				end
-				task.wait(0.4)
-				isProcessingTouch = false
-			end
-		end
-	end)
-	table.insert(Connections, FloatTouchConnection)
-	Animations:Component(FloatingButton, true)
-
+	-- 快捷键绑定
 	local KeybindConnection = Services.Input.InputBegan:Connect(function(Input, Focused) 
 		if Input.KeyCode == Setup.Keybind and not Focused then
 			print("快捷键触发切换")
-			ToggleUI()
+			ToggleUI(Window, FloatingButton, FloatIcon, Stroke, BlurEnabled, Settings)
 		end
 	end)
 	table.insert(Connections, KeybindConnection)
 
-	--// Tab Functions
+	-- Tab Functions
 	function Options:SetTab(Name: string)
 		for Index, Button in next, Tab:GetChildren() do
 			if Button:IsA("TextButton") then
