@@ -1,8 +1,329 @@
-
-	Made by Late
+--[=[
+	User Interface Library
+	Made by Late, Modified for Text GUI like VAPE V4
+	Added Keybind Button for Button Component, optimized for mobile
 ]=]
 
---// Connme or "Dark"
+--// Connections
+local GetService = game.GetService
+local Connect = game.Loaded.Connect
+local Wait = game.Loaded.Wait
+local Clone = game.Clone 
+local Destroy = game.Destroy 
+
+if not game:IsLoaded() then
+	local Loaded = game.Loaded
+	Loaded.Wait(Loaded);
+end
+
+--// Important 
+local Setup = {
+	Keybind = Enum.KeyCode.LeftControl,
+	Transparency = 0.2,
+	ThemeMode = "Dark",
+	Size = nil,
+}
+
+local Theme = {
+	Primary = Color3.fromRGB(30, 30, 30),
+	Secondary = Color3.fromRGB(35, 35, 35),
+	Component = Color3.fromRGB(40, 40, 40),
+	Interactables = Color3.fromRGB(45, 45, 45),
+	Tab = Color3.fromRGB(200, 200, 200),
+	Title = Color3.fromRGB(240, 240, 240),
+	Description = Color3.fromRGB(200, 200, 200),
+	Shadow = Color3.fromRGB(0, 0, 0),
+	Outline = Color3.fromRGB(40, 40, 40),
+	Icon = Color3.fromRGB(220, 220, 220),
+}
+
+--// Services & Functions
+local Type, Blur = nil
+local LocalPlayer = GetService(game, "Players").LocalPlayer
+local Services = {
+	Insert = GetService(game, "InsertService"),
+	Tween = GetService(game, "TweenService"),
+	Run = GetService(game, "RunService"),
+	Input = GetService(game, "UserInputService"),
+}
+
+local Player = {
+	Mouse = LocalPlayer:GetMouse(),
+	GUI = LocalPlayer.PlayerGui,
+}
+
+local Tween = function(Object: Instance, Speed: number, Properties: {}, Info: { EasingStyle: Enum?, EasingDirection: Enum? })
+	local Style, Direction = Info and Info.EasingStyle or Enum.EasingStyle.Sine, Info and Info.EasingDirection or Enum.EasingDirection.Out
+	return Services.Tween:Create(Object, TweenInfo.new(Speed, Style, Direction), Properties):Play()
+end
+
+local SetProperty = function(Object: Instance, Properties: {})
+	for Index, Property in next, Properties do
+		Object[Index] = Property
+	end
+	return Object
+end
+
+local Multiply = function(Value, Amount)
+	return UDim2.new(
+		Value.X.Scale * Amount,
+		Value.X.Offset * Amount,
+		Value.Y.Scale * Amount,
+		Value.Y.Offset * Amount
+	)
+end
+
+local Color = function(Color, Factor, Mode)
+	Mode = Mode or Setup.ThemeMode
+	if Mode == "Light" then
+		return Color3.fromRGB((Color.R * 255) - Factor, (Color.G * 255) - Factor, (Color.B * 255) - Factor)
+	else
+		return Color3.fromRGB((Color.R * 255) + Factor, (Color.G * 255) + Factor, (Color.B * 255) + Factor)
+	end
+end
+
+local Drag = function(Canvas)
+	if Canvas then
+		local Dragging, DragInput, Start, StartPosition
+		Connect(Canvas.InputBegan, function(Input)
+			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
+				Dragging = true
+				Start = Input.Position
+				StartPosition = Canvas.Position
+				Connect(Input.Changed, function()
+					if Input.UserInputState == Enum.UserInputState.End then
+						Dragging = false
+					end
+				end)
+			end
+		end)
+		Connect(Canvas.InputChanged, function(Input)
+			if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
+				DragInput = Input
+			end
+		end)
+		Connect(Services.Input.InputChanged, function(Input)
+			if Input == DragInput and Dragging and not Type then
+				local delta = Input.Position - Start
+				Canvas.Position = UDim2.new(StartPosition.X.Scale, StartPosition.X.Offset + delta.X, StartPosition.Y.Scale, StartPosition.Y.Offset + delta.Y)
+			end
+		end)
+	end
+end
+
+local Resizing = { 
+	TopLeft = { X = Vector2.new(-1, 0), Y = Vector2.new(0, -1) },
+	TopRight = { X = Vector2.new(1, 0), Y = Vector2.new(0, -1) },
+	BottomLeft = { X = Vector2.new(-1, 0), Y = Vector2.new(0, 1) },
+	BottomRight = { X = Vector2.new(1, 0), Y = Vector2.new(0, 1) },
+}
+
+local Resizeable = function(Tab, Minimum, Maximum)
+	task.spawn(function()
+		local MousePos, Size, UIPos
+		if Tab and Tab:FindFirstChild("Resize") then
+			local Positions = Tab:FindFirstChild("Resize")
+			for Index, Types in next, Positions:GetChildren() do
+				Connect(Types.InputBegan, function(Input)
+					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+						Type = Types
+						MousePos = Vector2.new(Player.Mouse.X, Player.Mouse.Y)
+						Size = Tab.AbsoluteSize
+						UIPos = Tab.Position
+					end
+				end)
+				Connect(Types.InputEnded, function(Input)
+					if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+						Type = nil
+					end
+				end)
+			end
+		else
+			warn("Resize child not found in Tab")
+		end
+
+		local Resize = function(Delta)
+			if Type and MousePos and Size and UIPos and Tab:FindFirstChild("Resize")[Type.Name] == Type then
+				local Mode = Resizing[Type.Name]
+				local NewSize = Vector2.new(Size.X + Delta.X * Mode.X.X, Size.Y + Delta.Y * Mode.Y.Y)
+				NewSize = Vector2.new(math.clamp(NewSize.X, Minimum.X, Maximum.X), math.clamp(NewSize.Y, Minimum.Y, Maximum.Y))
+				local AnchorOffset = Vector2.new(Tab.AnchorPoint.X * Size.X, Tab.AnchorPoint.Y * Size.Y)
+				local NewAnchorOffset = Vector2.new(Tab.AnchorPoint.X * NewSize.X, Tab.AnchorPoint.Y * NewSize.Y)
+				local DeltaAnchorOffset = NewAnchorOffset - AnchorOffset
+				Tab.Size = UDim2.new(0, NewSize.X, 0, NewSize.Y)
+				Tab.Position = UDim2.new(
+					UIPos.X.Scale, 
+					UIPos.X.Offset + DeltaAnchorOffset.X * Mode.X.X,
+					UIPos.Y.Scale,
+					UIPos.Y.Offset + DeltaAnchorOffset.Y * Mode.Y.Y
+				)
+			end
+		end
+
+		Connect(Player.Mouse.Move, function()
+			if Type then
+				Resize(Vector2.new(Player.Mouse.X, Player.Mouse.Y) - MousePos)
+			end
+		end)
+	end)
+end
+
+--// Setup [UI]
+local success, Screen = pcall(function()
+	return Services.Insert:LoadLocalAsset("rbxassetid://18490507748")
+end)
+if not success then
+	warn("Failed to load UI asset: " .. Screen)
+	Screen = script.Parent
+end
+
+local success, Blur = pcall(function()
+	if identifyexecutor then
+		return loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))()
+	else
+		return require(script.Blur)
+	end
+end)
+if not success then
+	warn("Failed to load Blur: " .. Blur)
+	Blur = nil
+end
+
+Screen.Main.Visible = false
+
+xpcall(function()
+	Screen.Parent = game.CoreGui
+end, function() 
+	Screen.Parent = Player.GUI
+end)
+
+--// Tables for Data
+local Animations = {}
+local Blurs = {}
+local Components = Screen:FindFirstChild("Components")
+local Library = {}
+local StoredInfo = {
+	Sections = {},
+	Tabs = {}
+}
+
+--// Animations [Window]
+function Animations:Open(Window: CanvasGroup, Transparency: number, UseCurrentSize: boolean)
+	local Original = UseCurrentSize and Window.Size or Setup.Size
+	local Multiplied = Multiply(Original, 1.1)
+	local Shadow = Window:FindFirstChildOfClass("UIStroke")
+
+	SetProperty(Shadow, { Transparency = 1 })
+	SetProperty(Window, { Size = Multiplied, GroupTransparency = 1, Visible = true })
+	Tween(Shadow, .25, { Transparency = 0.5 })
+	Tween(Window, .25, { Size = Original, GroupTransparency = Transparency or 0 })
+end
+
+function Animations:Close(Window: CanvasGroup)
+	local Original = Window.Size
+	local Multiplied = Multiply(Original, 1.1)
+	local Shadow = Window:FindFirstChildOfClass("UIStroke")
+
+	SetProperty(Window, { Size = Original })
+	Tween(Shadow, .25, { Transparency = 1 })
+	Tween(Window, .25, { Size = Multiplied, GroupTransparency = 1 })
+	task.wait(.25)
+	Window.Size = Original
+	Window.Visible = false
+end
+
+function Animations:Component(Component: any, Custom: boolean)	
+	Connect(Component.InputBegan, function() 
+		if Custom then
+			Tween(Component, .25, { Transparency = .85 })
+			local Image = Component:FindFirstChild("Icon")
+			if Image then
+				Tween(Image, .25, { ImageTransparency = .85 })
+			end
+		else
+			Tween(Component, .25, { BackgroundColor3 = Color(Theme.Component, 5, Setup.ThemeMode) })
+		end
+	end)
+	Connect(Component.InputEnded, function() 
+		if Custom then
+			Tween(Component, .25, { Transparency = 1 })
+			local Image = Component:FindFirstChild("Icon")
+			if Image then
+				Tween(Image, .25, { ImageTransparency = Setup.Transparency })
+			end
+		else
+			Tween(Component, .25, { BackgroundColor3 = Theme.Component })
+		end
+	end)
+end
+
+--// Library [Window]
+function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string? })
+	local Window = Clone(Screen:WaitForChild("Main"))
+	local Sidebar = Window:FindFirstChild("Sidebar")
+	local Holder = Window:FindFirstChild("Main")
+	local BG = Window:FindFirstChild("BackgroundShadow")
+	local Tab = Sidebar:FindFirstChild("Tab")
+
+	local Options = {}
+	local Examples = {}
+	local Opened = true
+	local BlurEnabled = false
+	local Connections = {}
+	local IsToggling = false
+	local IsDragging = false
+	local DragStarted = 0
+
+	for Index, Example in next, Window:GetDescendants() do
+		if Example.Name:find("Example") and not Examples[Example.Name] then
+			Examples[Example.Name] = Example
+		end
+	end
+
+	--// 检查 Sidebar.Top 是否存在
+	local SidebarTop = Sidebar:FindFirstChild("Top")
+	if not SidebarTop then
+		warn("Sidebar.Top not found! Creating new Top frame.")
+		SidebarTop = Instance.new("Frame")
+		SidebarTop.Name = "Top"
+		SidebarTop.Parent = Sidebar
+		SidebarTop.BackgroundTransparency = 1
+		SidebarTop.Size = UDim2.new(1, 0, 0, 50)
+		SidebarTop.Position = UDim2.new(0, 0, 0, 0)
+	end
+	print("Sidebar.Top exists: ", SidebarTop ~= nil)
+
+	--// 添加标题栏
+	local TitleBar = Instance.new("TextLabel")
+	TitleBar.Name = "TitleBar"
+	TitleBar.Parent = SidebarTop
+	TitleBar.Size = UDim2.new(0.5, 0, 0, 30)
+	TitleBar.Position = UDim2.new(0, 10, 0, 5)
+	TitleBar.BackgroundTransparency = 1
+	TitleBar.Text = Settings.Title
+	TitleBar.TextColor3 = Theme.Title
+	TitleBar.TextSize = 16
+	TitleBar.Font = Enum.Font.NotoSans
+	TitleBar.TextXAlignment = Enum.TextXAlignment.Left
+	TitleBar.TextYAlignment = Enum.TextYAlignment.Center
+	TitleBar.ZIndex = 5
+
+	--// 删除原有按钮
+	local Buttons = SidebarTop:FindFirstChild("Buttons")
+	if Buttons then
+		for _, Button in pairs(Buttons:GetChildren()) do
+			if Button:IsA("TextButton") then
+				Button:Destroy()
+			end
+		end
+	end
+
+	--// UI Blur & More
+	Drag(Window)
+	Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
+	Setup.Transparency = Settings.Transparency or 0
+	Setup.Size = Settings.Size
+	Setup.ThemeMode = Settings.Theme or "Dark"
 
 	if Settings.Blurring and Blur then
 		Blurs[Settings.Title] = Blur.new(Window, 5)
