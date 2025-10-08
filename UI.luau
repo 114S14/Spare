@@ -1,7 +1,5 @@
 --[=[
-	User Interface Library
-	Made by Late, Modified for Text GUI like VAPE V4
-	Added Keybind Button for Button Component, optimized for mobile
+	
 ]=]
 
 --// Connections
@@ -13,7 +11,7 @@ local Destroy = game.Destroy
 
 if not game:IsLoaded() then
 	local Loaded = game.Loaded
-	Loaded.Wait(Loaded);
+	Loaded.Wait(Loaded)
 end
 
 --// Important 
@@ -22,6 +20,7 @@ local Setup = {
 	Transparency = 0.2,
 	ThemeMode = "Dark",
 	Size = nil,
+	ShowFeatureStatus = true, -- 新增：控制功能状态显示的开关
 }
 
 local Theme = {
@@ -167,7 +166,6 @@ local Resizeable = function(Tab, Minimum, Maximum)
 		end)
 	end)
 end
-
 --// Setup [UI]
 local success, Screen = pcall(function()
 	return Services.Insert:LoadLocalAsset("rbxassetid://18490507748")
@@ -204,7 +202,9 @@ local Components = Screen:FindFirstChild("Components")
 local Library = {}
 local StoredInfo = {
 	Sections = {},
-	Tabs = {}
+	Tabs = {},
+	ActiveFeatures = {}, -- 新增：存储当前激活的功能
+	FeatureStatusContainer = nil, -- 新增：功能状态容器
 }
 
 --// Animations [Window]
@@ -228,7 +228,6 @@ function Animations:Close(Window: CanvasGroup)
 	Tween(Shadow, .25, { Transparency = 1 })
 	Tween(Window, .25, { Size = Multiplied, GroupTransparency = 1 })
 	task.wait(.25)
-	Window.Size = Original
 	Window.Visible = false
 end
 
@@ -256,6 +255,163 @@ function Animations:Component(Component: any, Custom: boolean)
 		end
 	end)
 end
+--// 新增：功能状态容器
+function Library:CreateFeatureStatusContainer()
+	if StoredInfo.FeatureStatusContainer then
+		StoredInfo.FeatureStatusContainer:Destroy()
+	end
+
+	local Container = Instance.new("Frame")
+	Container.Name = "FeatureStatusContainer"
+	Container.Size = UDim2.new(0, 150, 0, 0)
+	Container.Position = UDim2.new(1, -170, 0, 20)
+	Container.BackgroundTransparency = 1
+	Container.BorderSizePixel = 0
+	Container.ClipsDescendants = false
+	Container.Visible = Setup.ShowFeatureStatus
+	Container.Parent = Screen
+
+	local ListLayout = Instance.new("UIListLayout")
+	ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ListLayout.FillDirection = Enum.FillDirection.Vertical
+	ListLayout.Padding = UDim.new(0, 5)
+	ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	ListLayout.Parent = Container
+
+	-- 更新圆角
+	local function UpdateCorners()
+		local children = Container:GetChildren()
+		local statusItems = {}
+		for _, child in ipairs(children) do
+			if child:IsA("TextLabel") then
+				table.insert(statusItems, child)
+			end
+		end
+
+		for _, item in ipairs(statusItems) do
+			local corner = item:FindFirstChildOfClass("UICorner")
+			if corner then
+				corner:Destroy()
+			end
+		end
+
+		if #statusItems > 0 then
+			local lastItem = statusItems[#statusItems]
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, 6)
+			corner.Parent = lastItem
+		end
+	end
+
+	Connect(Container.ChildAdded, UpdateCorners)
+	Connect(Container.ChildRemoved, UpdateCorners)
+
+	StoredInfo.FeatureStatusContainer = Container
+	return Container
+end
+
+--// 新增：添加功能状态项
+function Library:AddFeatureStatus(featureName: string)
+	if not Setup.ShowFeatureStatus or not StoredInfo.FeatureStatusContainer or StoredInfo.ActiveFeatures[featureName] then
+		return nil
+	end
+
+	local statusText = Instance.new("TextLabel")
+	statusText.Name = "Status_" .. featureName
+	statusText.Size = UDim2.new(0, 150, 0, 18)
+	statusText.BackgroundColor3 = Theme.Component
+	statusText.BackgroundTransparency = Setup.Transparency
+	statusText.BorderSizePixel = 0
+	statusText.Text = featureName
+	statusText.TextColor3 = Theme.Title
+	statusText.TextSize = 16
+	statusText.Font = Enum.Font.SourceSansBold
+	statusText.TextXAlignment = Enum.TextXAlignment.Right
+	statusText.TextStrokeTransparency = 0.5
+	statusText.TextStrokeColor3 = Theme.Shadow
+	statusText.Parent = StoredInfo.FeatureStatusContainer
+
+	-- 滑入动画
+	local originalPos = statusText.Position
+	statusText.Position = UDim2.new(0, 200, 0, 0)
+	Tween(statusText, 0.6, { Position = UDim2.new(0, 0, 0, 0) }, { EasingStyle = Enum.EasingStyle.Back })
+
+	StoredInfo.ActiveFeatures[featureName] = true
+	Library:UpdateFeatureStatusContainerSize()
+
+	-- 通知
+	Library:Notify({
+		Title = featureName,
+		Description = "功能已开启",
+		Duration = 2
+	})
+
+	return statusText
+end
+
+--// 新增：移除功能状态项
+function Library:RemoveFeatureStatus(featureName: string)
+	if not StoredInfo.FeatureStatusContainer then
+		return
+	end
+
+	local statusText = StoredInfo.FeatureStatusContainer:FindFirstChild("Status_" .. featureName)
+	if statusText then
+		Tween(statusText, 0.4, {
+			Position = UDim2.new(0, 200, 0, 0),
+			TextTransparency = 1,
+			TextStrokeTransparency = 1,
+			BackgroundTransparency = 1
+		}, { EasingStyle = Enum.EasingStyle.Quad })
+		task.delay(0.4, function()
+			statusText:Destroy()
+			StoredInfo.ActiveFeatures[featureName] = nil
+			Library:UpdateFeatureStatusContainerSize()
+			-- 通知
+			Library:Notify({
+				Title = featureName,
+				Description = "功能已关闭",
+				Duration = 2
+			})
+		end)
+	end
+end
+
+--// 新增：更新功能状态容器大小
+function Library:UpdateFeatureStatusContainerSize()
+	if not StoredInfo.FeatureStatusContainer then
+		return
+	end
+
+	local childCount = #StoredInfo.FeatureStatusContainer:GetChildren() - 1 -- 减去 UIListLayout
+	local newHeight = math.max(0, childCount * 23 - 5)
+
+	Tween(StoredInfo.FeatureStatusContainer, 0.3, {
+		Size = UDim2.new(0, 150, 0, newHeight)
+	}, { EasingStyle = Enum.EasingStyle.Quad })
+end
+
+--// 新增：切换功能状态显示
+function Library:ToggleFeatureStatusDisplay(enabled: boolean)
+	Setup.ShowFeatureStatus = enabled
+
+	if not StoredInfo.FeatureStatusContainer then
+		Library:CreateFeatureStatusContainer()
+	end
+
+	local container = StoredInfo.FeatureStatusContainer
+	container.Visible = enabled
+
+	if enabled then
+		for featureName, _ in pairs(StoredInfo.ActiveFeatures) do
+			if not container:FindFirstChild("Status_" .. featureName) then
+				Library:AddFeatureStatus(featureName)
+			end
+		end
+	end
+
+	Library:UpdateFeatureStatusContainerSize()
+end
 
 --// Library [Window]
 function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string? })
@@ -280,6 +436,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		end
 	end
 
+	-- 初始化功能状态容器
+	Library:CreateFeatureStatusContainer()
+
 	--// 检查 Sidebar.Top 是否存在
 	local SidebarTop = Sidebar:FindFirstChild("Top")
 	if not SidebarTop then
@@ -291,7 +450,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		SidebarTop.Size = UDim2.new(1, 0, 0, 50)
 		SidebarTop.Position = UDim2.new(0, 0, 0, 0)
 	end
-	print("Sidebar.Top exists: ", SidebarTop ~= nil)
 
 	--// 添加标题栏
 	local TitleBar = Instance.new("TextLabel")
@@ -303,7 +461,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	TitleBar.Text = Settings.Title
 	TitleBar.TextColor3 = Theme.Title
 	TitleBar.TextSize = 16
-	TitleBar.Font = Enum.Font.NotoSans
+	TitleBar.Font = Enum.Font.SourceSansBold
 	TitleBar.TextXAlignment = Enum.TextXAlignment.Left
 	TitleBar.TextYAlignment = Enum.TextYAlignment.Center
 	TitleBar.ZIndex = 5
@@ -366,11 +524,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	Stroke.Transparency = Setup.Transparency
 	Stroke.Parent = FloatingButton
 
-	--// 调试 FloatingButton 贴花
-	print("FloatingButton created: ", FloatingButton ~= nil)
-	print("FloatIcon.Image: ", FloatIcon.Image)
-	print("FloatIcon.ImageTransparency: ", FloatIcon.ImageTransparency)
-
 	--// 使浮动按钮可拖动
 	local function MakeDraggable(Button)
 		local Dragging, DragInput, Start, StartPosition
@@ -378,7 +531,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 		local DragConnection1 = Connect(Button.InputBegan, function(Input)
 			if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-				print("开始拖动 FloatingButton")
 				IsDragging = true
 				Dragging = true
 				DragStarted = tick()
@@ -406,7 +558,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Dragging = false
 				IsDragging = false
-				print("拖动结束，持续时间：" .. tostring(tick() - DragStarted))
 			end
 		end)
 
@@ -421,11 +572,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 	--// 切换 UI
 	local ToggleUI = function()
 		if IsToggling then
-			print("切换被阻止：正在处理")
 			return
 		end
 		IsToggling = true
-		print("触发 ToggleUI，当前状态：" .. tostring(Opened))
 
 		if Opened then
 			if BlurEnabled then
@@ -459,7 +608,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		task.spawn(function()
 			task.wait(0.4)
 			IsToggling = false
-			print("ToggleUI 完成，IsToggling 重置")
 		end)
 	end
 
@@ -473,7 +621,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			local currentTime = tick()
 			if currentTime - lastClickTime > clickDelay then
 				lastClickTime = currentTime
-				print("点击 FloatingButton，触发切换")
 				ToggleUI()
 			end
 		end
@@ -491,7 +638,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
 				   TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
 					lastClickTime = currentTime
-					print("触摸 FloatingButton，触发切换")
 					ToggleUI()
 				end
 				task.wait(0.4)
@@ -504,12 +650,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
 	local KeybindConnection = Services.Input.InputBegan:Connect(function(Input, Focused) 
 		if Input.KeyCode == Setup.Keybind and not Focused then
-			print("快捷键触发切换")
 			ToggleUI()
 		end
 	end)
 	table.insert(Connections, KeybindConnection)
-
 	--// Tab Functions
 	function Options:SetTab(Name: string)
 		for Index, Button in next, Tab:GetChildren() do
@@ -635,78 +779,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		local Button = Clone(Components["Button"])
 		local Title, Description = Options:GetLabels(Button)
 
-		-- 创建移动端适配的快捷键按钮
-		local KeybindButton = Instance.new("TextButton")
-		KeybindButton.Name = "KeybindButton"
-		KeybindButton.Parent = Button
-		KeybindButton.Size = UDim2.new(0, 40, 0, 40) -- 较大尺寸适配移动端手指
-		KeybindButton.Position = UDim2.new(1, -50, 0.5, -20)
-		KeybindButton.AnchorPoint = Vector2.new(1, 0.5)
-		KeybindButton.BackgroundColor3 = Theme.Interactables
-		KeybindButton.Text = "Tap to Bind"
-		KeybindButton.TextColor3 = Theme.Title
-		KeybindButton.TextSize = 14
-		KeybindButton.Font = Enum.Font.NotoSans
-		KeybindButton.BackgroundTransparency = Setup.Transparency
-		KeybindButton.AutoButtonColor = false
-		KeybindButton.ZIndex = 3
-		local Corner = Instance.new("UICorner")
-		Corner.CornerRadius = UDim.new(0, 8)
-		Corner.Parent = KeybindButton
-		local Stroke = Instance.new("UIStroke")
-		Stroke.Color = Theme.Outline
-		Stroke.Thickness = 1
-		Stroke.Transparency = Setup.Transparency
-		Stroke.Parent = KeybindButton
-
-		-- 快捷键绑定逻辑（移动端触摸区域）
-		local BindArea = nil -- 记录绑定的触摸区域坐标
-		local IsBinding = false
-
-		local BindTouch = function()
-			if IsBinding then return end
-			IsBinding = true
-			KeybindButton.Text = "Touch to Bind..."
-			local Detect
-			Detect = Services.Input.TouchTap:Connect(function(Touch, GameProcessed)
-				if not GameProcessed then
-					local TouchPos = Touch.Position
-					BindArea = {
-						X = TouchPos.X,
-						Y = TouchPos.Y,
-						Radius = 50 -- 50 像素的触摸半径
-					}
-					KeybindButton.Text = "Bound: Tap Area"
-					Detect:Disconnect()
-					IsBinding = false
-				end
-			end)
-			table.insert(Connections, Detect)
-		end
-
-		-- 快捷键按钮点击事件（触摸触发）
-		local KeybindButtonConnection = Connect(KeybindButton.InputBegan, function(Input)
-			if Input.UserInputType == Enum.UserInputType.Touch then
-				BindTouch()
-			end
-		end)
-		table.insert(Connections, KeybindButtonConnection)
-
-		-- 监听触摸区域触发按钮回调
-		local TouchTriggerConnection = Services.Input.TouchTap:Connect(function(Touch, GameProcessed)
-			if not GameProcessed and BindArea then
-				local TouchPos = Touch.Position
-				local Distance = math.sqrt(
-					(TouchPos.X - BindArea.X)^2 + (TouchPos.Y - BindArea.Y)^2
-				)
-				if Distance <= BindArea.Radius then
-					Settings.Callback()
-				end
-			end
-		end)
-		table.insert(Connections, TouchTriggerConnection)
-
-		-- 按钮点击事件
 		local ButtonConnection = Connect(Button.MouseButton1Click, Settings.Callback)
 		Animations:Component(Button)
 		SetProperty(Title, { Text = Settings.Title })
@@ -754,9 +826,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			if Value then
 				Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) })
 				Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
+				Options:AddFeatureStatus(Settings.Title)
 			else
 				Tween(Main, .2, { BackgroundColor3 = Theme.Interactables })
 				Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) })
+				Options:RemoveFeatureStatus(Settings.Title)
 			end
 			On.Value = Value
 		end 
@@ -999,8 +1073,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 				end
 			end,
 			["TextLabel"] = function(Label)
-				if Label:FindFirstChild("Padding") then
-					Label.TextColor3 = Theme.Title
+				if Label:IsA("TextLabel") and Label.Parent:FindFirstChild("List") then
+					Label.TextColor3 = Theme.Tab
 				end
 			end,
 			["Main"] = function(Label)
@@ -1017,6 +1091,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 					else
 						Label.BackgroundColor3 = Theme.Interactables
 					end
+				elseif Label:FindFirstChild("Padding") then
+					Label.TextColor3 = Theme.Title
 				end
 			end,
 			["Amount"] = function(Label)
@@ -1096,6 +1172,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 		Holder.BackgroundColor3 = Theme.Secondary
 		Window.UIStroke.Color = Theme.Shadow
 
+		-- 更新功能状态容器的主题
+		if StoredInfo.FeatureStatusContainer then
+			for _, item in ipairs(StoredInfo.FeatureStatusContainer:GetChildren()) do
+				if item:IsA("TextLabel") then
+					item.BackgroundColor3 = Theme.Component
+					item.TextColor3 = Theme.Title
+					item.TextStrokeColor3 = Theme.Shadow
+					item.BackgroundTransparency = Setup.Transparency
+				end
+			end
+		end
+
 		for Index, Descendant in next, Screen:GetDescendants() do
 			local Name, Class = Themes.Names[Descendant.Name], Themes.Classes[Descendant.ClassName]
 			if Name then
@@ -1155,6 +1243,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 			Blurs[Settings.Title].root.Parent = nil
 			Blurs[Settings.Title] = nil
 		end
+		if StoredInfo.FeatureStatusContainer then
+			StoredInfo.FeatureStatusContainer:Destroy()
+		end
 		for _, descendant in pairs(Screen:GetDescendants()) do
 			pcall(function() descendant:Destroy() end)
 		end
@@ -1169,3 +1260,4 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 end
 
 return Library
+	
