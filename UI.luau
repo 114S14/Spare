@@ -1,6 +1,3 @@
---[=[
-    User Interface Library
-]=]
 
 --// Connections
 local GetService = game.GetService
@@ -38,6 +35,7 @@ local Theme = {
 --// Services & Functions
 local Type = nil
 local LocalPlayer = GetService(game, "Players").LocalPlayer
+local TextService = GetService(game, "TextService")
 local Services = {
     Insert = GetService(game, "InsertService"),
     Tween = GetService(game, "TweenService"),
@@ -306,7 +304,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     --// 创建状态显示容器（位于屏幕右上角）
     local StatusContainer = Instance.new("Frame")
     StatusContainer.Name = "StatusContainer"
-    StatusContainer.Parent = Screen -- 改为 Screen 而非 Window
+    StatusContainer.Parent = Screen -- 绑定到 Screen
     StatusContainer.BackgroundTransparency = 1
     StatusContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
     StatusContainer.Position = UDim2.new(1, -10, 0, 10)
@@ -320,7 +318,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-    --// 添加状态显示函数
+    --// 添加状态显示函数（动态宽度）
     local function AddStatus(title: string)
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
@@ -331,12 +329,21 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             StatusLabel.Text = title
             StatusLabel.TextSize = 14
             StatusLabel.Font = Enum.Font.SourceSans
-            StatusLabel.Size = UDim2.new(0, 150, 0, 25)
             StatusLabel.BackgroundTransparency = Setup.Transparency
             StatusLabel.TextTransparency = Setup.Transparency
             StatusLabel.ZIndex = 11
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+            -- 计算文字宽度
+            local textSize = TextService:GetTextSize(
+                title,
+                14,
+                Enum.Font.SourceSans,
+                Vector2.new(1000, 25) -- 最大宽度用于计算
+            )
+            local labelWidth = math.clamp(textSize.X + 20, 100, 200) -- 最小100像素，最大200像素，+20为内边距
+            StatusLabel.Size = UDim2.new(0, labelWidth, 0, 25)
 
             local Stroke = Instance.new("UIStroke")
             Stroke.Color = Theme.Outline
@@ -350,7 +357,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
             -- 动画效果
             StatusLabel.Size = UDim2.new(0, 0, 0, 25)
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 150, 0, 25) })
+            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, labelWidth, 0, 25) })
 
             ActiveStates[title] = StatusLabel
         end
@@ -1076,7 +1083,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             end
         end
 
-        -- 更新状态标签的主题
+        -- 更新状态标签的主题（包括动态宽度）
         for _, StatusLabel in pairs(StatusContainer:GetChildren()) do
             if StatusLabel:IsA("TextLabel") then
                 StatusLabel.BackgroundColor3 = Theme.Component
@@ -1086,6 +1093,15 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                     Stroke.Color = Theme.Outline
                     Stroke.Transparency = Setup.Transparency
                 end
+                -- 重新计算宽度以匹配新主题
+                local textSize = TextService:GetTextSize(
+                    StatusLabel.Text,
+                    14,
+                    Enum.Font.SourceSans,
+                    Vector2.new(1000, 25)
+                )
+                local labelWidth = math.clamp(textSize.X + 20, 100, 200)
+                StatusLabel.Size = UDim2.new(0, labelWidth, 0, 25)
             end
         end
     end
