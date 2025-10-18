@@ -1,5 +1,6 @@
---[[
-]]
+--[=[
+    User Interface Library
+]=]
 
 --// Connections
 local GetService = game.GetService
@@ -35,7 +36,7 @@ local Theme = {
 }
 
 --// Services & Functions
-local Type, Blur = nil
+local Type = nil
 local LocalPlayer = GetService(game, "Players").LocalPlayer
 local Services = {
     Insert = GetService(game, "InsertService"),
@@ -174,18 +175,6 @@ if not success then
     Screen = script.Parent
 end
 
-local success, Blur = pcall(function()
-    if identifyexecutor then
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/lxte/lates-lib/main/Assets/Blur.lua"))()
-    else
-        return require(script.Blur)
-    end
-end)
-if not success then
-    warn("Failed to load Blur: " .. Blur)
-    Blur = nil
-end
-
 Screen.Main.Visible = false
 
 xpcall(function()
@@ -196,7 +185,6 @@ end)
 
 --// Tables for Data
 local Animations = {}
-local Blurs = {}
 local Components = Screen:FindFirstChild("Components")
 local Library = {}
 local StoredInfo = {
@@ -255,7 +243,7 @@ function Animations:Component(Component: any, Custom: boolean)
 end
 
 --// Library [Window]
-function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Blurring: boolean, Theme: string, FloatingIcon: string? })
+function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Theme: string, FloatingIcon: string? })
     local Window = Clone(Screen:WaitForChild("Main"))
     local Sidebar = Window:FindFirstChild("Sidebar")
     local Holder = Window:FindFirstChild("Main")
@@ -265,12 +253,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     local Options = {}
     local Examples = {}
     local Opened = true
-    local BlurEnabled = false
     local Connections = {}
     local IsToggling = false
     local IsDragging = false
     local DragStarted = 0
-    local ActiveStates = {} -- 新增：存储当前激活的状态
+    local ActiveStates = {} -- 存储当前激活的状态
 
     for Index, Example in next, Window:GetDescendants() do
         if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -316,10 +303,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         end
     end
 
-    --// 创建状态显示容器
+    --// 创建状态显示容器（位于屏幕右上角）
     local StatusContainer = Instance.new("Frame")
     StatusContainer.Name = "StatusContainer"
-    StatusContainer.Parent = Window
+    StatusContainer.Parent = Screen -- 改为 Screen 而非 Window
     StatusContainer.BackgroundTransparency = 1
     StatusContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
     StatusContainer.Position = UDim2.new(1, -10, 0, 10)
@@ -380,17 +367,12 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         end
     end
 
-    --// UI Blur & More
+    --// UI Setup
     Drag(Window)
     Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
     Setup.Transparency = Settings.Transparency or 0
     Setup.Size = Settings.Size
     Setup.ThemeMode = Settings.Theme or "Dark"
-
-    if Settings.Blurring and Blur then
-        Blurs[Settings.Title] = Blur.new(Window, 5)
-        BlurEnabled = true
-    end
 
     if Settings.MinimizeKeybind then
         Setup.Keybind = Settings.MinimizeKeybind
@@ -490,12 +472,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         print("触发 ToggleUI，当前状态：" .. tostring(Opened))
 
         if Opened then
-            if BlurEnabled then
-                local blur = Blurs[Settings.Title]
-                if blur and blur.root then
-                    blur.root.Parent = nil
-                end
-            end
             Opened = false
             Animations:Close(Window)
             task.wait(0.3)
@@ -507,12 +483,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             Window.Visible = true
             Animations:Open(Window, Setup.Transparency)
             Opened = true
-            if BlurEnabled then
-                local blur = Blurs[Settings.Title]
-                if blur and not blur.root.Parent then
-                    blur.root.Parent = workspace.CurrentCamera
-                end
-            end
             Tween(FloatingButton, 0.25, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = Setup.Transparency })
             Tween(FloatIcon, 0.25, { ImageTransparency = Setup.Transparency })
             Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
@@ -1135,22 +1105,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             FloatingButton.BackgroundTransparency = Value
             FloatIcon.ImageTransparency = Value
             Stroke.Transparency = Value
-        elseif Setting == "Blur" then
-            local AlreadyBlurred, Root = Blurs[Settings.Title]
-            if AlreadyBlurred then
-                Root = Blurs[Settings.Title]["root"]
-            end
-            if Value and Blur then
-                BlurEnabled = true
-                if not AlreadyBlurred or not Root then
-                    Blurs[Settings.Title] = Blur.new(Window, 5)
-                elseif Root and not Root.Parent then
-                    Root.Parent = workspace.CurrentCamera
-                end
-            elseif not Value and (AlreadyBlurred and Root and Root.Parent) then
-                Root.Parent = nil
-                BlurEnabled = false
-            end
         elseif Setting == "Theme" and typeof(Value) == "table" then
             Options:SetTheme(Value)
         elseif Setting == "Keybind" then
@@ -1165,10 +1119,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             pcall(function() Connection:Disconnect() end)
         end
         Connections = {}
-        if Blurs[Settings.Title] then
-            Blurs[Settings.Title].root.Parent = nil
-            Blurs[Settings.Title] = nil
-        end
         for _, descendant in pairs(Screen:GetDescendants()) do
             pcall(function() descendant:Destroy() end)
         end
