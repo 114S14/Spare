@@ -1,3 +1,8 @@
+--[=[
+    User Interface Library
+    Made by Late
+    Modified to add status display in screen top-right corner with dynamic width (min 0, max 10000 pixels), updated text style (GothamBold, size 16, wrapped), and text shifted left by 15 pixels
+]=]
 
 --// Connections
 local GetService = game.GetService
@@ -318,7 +323,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-    --// 添加状态显示函数（动态宽度，最大10000，最小0，文字向左移动10像素）
+    --// 添加状态显示函数（动态宽度，最大10000，最小0，文字向左移动15像素）
     local function AddStatus(title: string)
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
@@ -338,7 +343,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
             -- 添加左内边距
             local Padding = Instance.new("UIPadding")
-            Padding.PaddingLeft = UDim.new(0, 0)
+            Padding.PaddingLeft = UDim.new(0, 15) -- 增加到15像素
             Padding.Parent = StatusLabel
 
             -- 计算文字尺寸（考虑换行）
@@ -348,7 +353,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                 Enum.Font.GothamBold,
                 Vector2.new(10000, 1000)
             )
-            local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20 = 30像素内边距
+            local labelWidth = math.clamp(textSize.X + 35, 0, 10000) -- 左15 + 右20 = 35像素内边距
             local labelHeight = math.max(25, textSize.Y + 10)
             StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
 
@@ -1110,7 +1115,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                     Padding = Instance.new("UIPadding")
                     Padding.Parent = StatusLabel
                 end
-                Padding.PaddingLeft = UDim.new(0, 10)
+                Padding.PaddingLeft = UDim.new(0, 15) -- 增加到15像素
                 -- 重新计算宽度和高度
                 local textSize = TextService:GetTextSize(
                     StatusLabel.Text,
@@ -1118,7 +1123,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                     Enum.Font.GothamBold,
                     Vector2.new(10000, 1000)
                 )
-                local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20
+                local labelWidth = math.clamp(textSize.X + 35, 0, 10000) -- 左15 + 右20
                 local labelHeight = math.max(25, textSize.Y + 10)
                 StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
             end
