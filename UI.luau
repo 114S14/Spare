@@ -338,7 +338,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
             -- 添加左内边距
             local Padding = Instance.new("UIPadding")
-            Padding.PaddingLeft = UDim.new(0, 30)
+            Padding.PaddingLeft = UDim.new(0, -30)
             Padding.Parent = StatusLabel
 
             -- 计算文字尺寸（考虑换行）
