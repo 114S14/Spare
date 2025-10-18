@@ -51,7 +51,9 @@ local Player = {
 
 local Tween = function(Object: Instance, Speed: number, Properties: {}, Info: { EasingStyle: Enum?, EasingDirection: Enum? })
     local Style, Direction = Info and Info.EasingStyle or Enum.EasingStyle.Sine, Info and Info.EasingDirection or Enum.EasingDirection.Out
-    return Services.Tween:Create(Object, TweenInfo.new(Speed, Style, Direction), Properties):Play()
+    local tween = Services.Tween:Create(Object, TweenInfo.new(Speed, Style, Direction), Properties)
+    tween:Play()
+    return tween -- 返回 Tween 对象以便取消
 end
 
 local SetProperty = function(Object: Instance, Properties: {})
@@ -257,6 +259,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     local IsDragging = false
     local DragStarted = 0
     local ActiveStates = {} -- 存储当前激活的状态
+    local StatusTasks = {} -- 存储每个状态的延迟移除任务
 
     for Index, Example in next, Window:GetDescendants() do
         if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -321,65 +324,94 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
     --// 添加状态显示函数（动态宽度，最大10000，最小0，文字向左移动10像素）
     local function AddStatus(title: string)
-        if not ActiveStates[title] then
-            local StatusLabel = Instance.new("TextLabel")
-            StatusLabel.Name = title
-            StatusLabel.Parent = StatusContainer
-            StatusLabel.BackgroundColor3 = Theme.Component
-            StatusLabel.TextColor3 = Theme.Title
-            StatusLabel.Text = title
-            StatusLabel.TextSize = 16
-            StatusLabel.Font = Enum.Font.GothamBold
-            StatusLabel.TextWrapped = true
-            StatusLabel.BackgroundTransparency = Setup.Transparency
-            StatusLabel.TextTransparency = Setup.Transparency
-            StatusLabel.ZIndex = 11
-            StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
-            StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
-
-            -- 添加左内边距
-            local Padding = Instance.new("UIPadding")
-            Padding.PaddingLeft = UDim.new(0, 10)
-            Padding.Parent = StatusLabel
-
-            -- 计算文字尺寸（考虑换行）
-            local textSize = TextService:GetTextSize(
-                title,
-                16,
-                Enum.Font.GothamBold,
-                Vector2.new(10000, 1000)
-            )
-            local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20 = 30像素内边距
-            local labelHeight = math.max(25, textSize.Y + 10)
-            StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
-
-            local Stroke = Instance.new("UIStroke")
-            Stroke.Color = Theme.Outline
-            Stroke.Thickness = 1
-            Stroke.Transparency = Setup.Transparency
-            Stroke.Parent = StatusLabel
-
-            local Corner = Instance.new("UICorner")
-            Corner.CornerRadius = UDim.new(0, 5)
-            Corner.Parent = StatusLabel
-
-            -- 动画效果（动态宽度和高度）
-            StatusLabel.Size = UDim2.new(0, 0, 0, labelHeight)
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, labelWidth, 0, labelHeight) })
-
-            ActiveStates[title] = StatusLabel
+        -- 检查是否已存在有效标签
+        if ActiveStates[title] and ActiveStates[title].Parent then
+            -- 取消现有的延迟移除任务
+            if StatusTasks[title] then
+                task.cancel(StatusTasks[title])
+                StatusTasks[title] = nil
+            end
+            return -- 不创建新标签
         end
+
+        local StatusLabel = Instance.new("TextLabel")
+        StatusLabel.Name = title
+        StatusLabel.Parent = StatusContainer
+        StatusLabel.BackgroundColor3 = Theme.Component
+        StatusLabel.TextColor3 = Theme.Title
+        StatusLabel.Text = title
+        StatusLabel.TextSize = 16
+        StatusLabel.Font = Enum.Font.GothamBold
+        StatusLabel.TextWrapped = true
+        StatusLabel.BackgroundTransparency = Setup.Transparency
+        StatusLabel.TextTransparency = Setup.Transparency
+        StatusLabel.ZIndex = 11
+        StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+        StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+        -- 添加左内边距
+        local Padding = Instance.new("UIPadding")
+        Padding.PaddingLeft = UDim.new(0, 10)
+        Padding.Parent = StatusLabel
+
+        -- 计算文字尺寸（考虑换行）
+        local textSize = TextService:GetTextSize(
+            title,
+            16,
+            Enum.Font.GothamBold,
+            Vector2.new(10000, 1000)
+        )
+        local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20
+        local labelHeight = math.max(25, textSize.Y + 10)
+        StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
+
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Color = Theme.Outline
+        Stroke.Thickness = 1
+        Stroke.Transparency = Setup.Transparency
+        Stroke.Parent = StatusLabel
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = StatusLabel
+
+        -- 动画效果（动态宽度和高度）
+        StatusLabel.Size = UDim2.new(0, 0, 0, labelHeight)
+        local tween = Tween(StatusLabel, 0.25, { Size = UDim2.new(0, labelWidth, 0, labelHeight) })
+        ActiveStates[title] = StatusLabel
+        StatusLabel:SetAttribute("Tween", tween) -- 存储 Tween 以便取消
+
+        -- 2秒后自动移除
+        StatusTasks[title] = task.spawn(function()
+            task.wait(2)
+            RemoveStatus(title)
+        end)
     end
 
     --// 移除状态显示函数
     local function RemoveStatus(title: string)
-        if ActiveStates[title] then
+        if ActiveStates[title] and ActiveStates[title].Parent then
             local StatusLabel = ActiveStates[title]
+            -- 取消正在进行的动画
+            local tween = StatusLabel:GetAttribute("Tween")
+            if tween then
+                tween:Cancel()
+                StatusLabel:SetAttribute("Tween", nil)
+            end
+            -- 取消延迟任务
+            if StatusTasks[title] then
+                task.cancel(StatusTasks[title])
+                StatusTasks[title] = nil
+            end
             local labelHeight = StatusLabel.Size.Y.Offset
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 0, 0, labelHeight), TextTransparency = 1, BackgroundTransparency = 1 })
-            task.wait(0.25)
-            StatusLabel:Destroy()
-            ActiveStates[title] = nil
+            local removeTween = Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 0, 0, labelHeight), TextTransparency = 1, BackgroundTransparency = 1 })
+            task.spawn(function()
+                task.wait(0.25)
+                if StatusLabel.Parent then
+                    StatusLabel:Destroy()
+                end
+                ActiveStates[title] = nil
+            end)
         end
     end
 
@@ -922,6 +954,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             Update(tonumber(Amount.Text) or 0)
         end)
         local FireConnection = Connect(Fire.MouseButton1Down, Activate)
+        ···
         local EndConnection = Connect(Services.Input.InputEnded, function(Input) 
             if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                 Active = false
@@ -1151,6 +1184,22 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:Destroy()
+        -- 取消所有状态任务
+        for title, task in pairs(StatusTasks) do
+            task.cancel(task)
+            StatusTasks[title] = nil
+        end
+        -- 清理所有状态标签
+        for title, StatusLabel in pairs(ActiveStates) do
+            local tween = StatusLabel:GetAttribute("Tween")
+            if tween then
+                tween:Cancel()
+            end
+            if StatusLabel.Parent then
+                StatusLabel:Destroy()
+            end
+            ActiveStates[title] = nil
+        end
         for _, Connection in ipairs(Connections) do
             pcall(function() Connection:Disconnect() end)
         end
@@ -1160,8 +1209,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         end
         Screen:Destroy()
         FloatingButton:Destroy()
-        StatusContainer:Destroy() -- 清理状态容器
-        ActiveStates = {} -- 清空状态表
+        StatusContainer:Destroy()
+        ActiveStates = {}
     end
 
     SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
