@@ -19,6 +19,7 @@ local Setup = {
     Transparency = 0.2,
     ThemeMode = "Dark",
     Size = nil,
+    MaxStatusCount = 5, -- 新增：最大状态标签数量
 }
 
 local Theme = {
@@ -258,6 +259,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     local IsDragging = false
     local DragStarted = 0
     local ActiveStates = {} -- 存储当前激活的状态
+    local StatusOrder = {} -- 存储状态添加顺序，用于移除最早的状态
 
     for Index, Example in next, Window:GetDescendants() do
         if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -308,7 +310,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusContainer.Name = "StatusContainer"
     StatusContainer.Parent = Screen -- 绑定到 Screen
     StatusContainer.BackgroundTransparency = 1
-    StatusContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
+    StatusContainer.Size = UDim2.new(0.3, 0, 0, 0) -- 初始高度为 0，动态调整
     StatusContainer.Position = UDim2.new(1, -10, 0, 10)
     StatusContainer.AnchorPoint = Vector2.new(1, 0)
     StatusContainer.ZIndex = 10
@@ -320,8 +322,22 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-    --// 添加状态显示函数（动态宽度）
-    local function AddStatus(title: string)
+    --// 更新容器高度
+    local function UpdateContainerSize()
+        local count = #StatusContainer:GetChildren() - 1 -- 减去 UIListLayout
+        local height = count * 25 + math.max(0, count - 1) * 5 -- 标签高度 25 + 间距 5
+        Tween(StatusContainer, 0.25, { Size = UDim2.new(0.3, 0, 0, height) })
+    end
+
+    --// 添加状态显示函数（改进版）
+    local function AddStatus(title: string, duration: number?)
+        -- 检查最大状态数量
+        if #StatusOrder >= Setup.MaxStatusCount then
+            local oldestTitle = StatusOrder[1]
+            RemoveStatus(oldestTitle)
+            table.remove(StatusOrder, 1)
+        end
+
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
             StatusLabel.Name = title
@@ -331,48 +347,104 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             StatusLabel.Text = title
             StatusLabel.TextSize = 14
             StatusLabel.Font = Enum.Font.SourceSans
-            StatusLabel.BackgroundTransparency = Setup.Transparency
-            StatusLabel.TextTransparency = Setup.Transparency
+            StatusLabel.BackgroundTransparency = 1 -- 初始透明
+            StatusLabel.TextTransparency = 1
             StatusLabel.ZIndex = 11
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
+            StatusLabel.TextTruncate = Enum.TextTruncate.AtEnd -- 文字截断
 
             -- 计算文字宽度
+            local screenWidth = game:GetService("GuiService"):GetScreenResolution().X
             local textSize = TextService:GetTextSize(
                 title,
                 14,
                 Enum.Font.SourceSans,
-                Vector2.new(1000, 25) -- 最大宽度用于计算
+                Vector2.new(10000, 25)
             )
-            local labelWidth = math.clamp(textSize.X + 20, 0, 200) -- 最小100像素，最大200像素，+20为内边距
-            StatusLabel.Size = UDim2.new(0, labelWidth, 0, 25)
+            local labelWidth = math.clamp(textSize.X + 20, 0, 10000)
+            -- 确保不超出屏幕右边界
+            if labelWidth > screenWidth - 20 then
+                labelWidth = screenWidth - 20
+                StatusContainer.Position = UDim2.new(1, -10, 0, 10)
+            end
+            StatusLabel.Size = UDim2.new(0, 0, 0, 25) -- 初始宽度为 0
 
             local Stroke = Instance.new("UIStroke")
             Stroke.Color = Theme.Outline
             Stroke.Thickness = 1
-            Stroke.Transparency = Setup.Transparency
+            Stroke.Transparency = 1
             Stroke.Parent = StatusLabel
 
             local Corner = Instance.new("UICorner")
             Corner.CornerRadius = UDim.new(0, 5)
             Corner.Parent = StatusLabel
 
-            -- 动画效果
-            StatusLabel.Size = UDim2.new(0, 0, 0, 25)
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, labelWidth, 0, 25) })
+            -- 添加阴影效果
+            local Shadow = Instance.new("UIStroke")
+            Shadow.Name = "Shadow"
+            Shadow.Color = Theme.Shadow
+            Shadow.Thickness = 2
+            Shadow.Transparency = 0.7
+            Shadow.Parent = StatusLabel
+
+            -- 动画效果（淡入 + 宽度扩展）
+            Tween(StatusLabel, 0.25, {
+                Size = UDim2.new(0, labelWidth, 0, 25),
+                BackgroundTransparency = Setup.Transparency,
+                TextTransparency = Setup.Transparency
+            })
+            Tween(Stroke, 0.25, { Transparency = Setup.Transparency })
+            Tween(Shadow, 0.25, { Transparency = 0.7 })
+
+            -- 点击移除
+            local clickConnection
+            clickConnection = StatusLabel.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    RemoveStatus(title)
+                    clickConnection:Disconnect()
+                end
+            end)
+            table.insert(Connections, clickConnection)
 
             ActiveStates[title] = StatusLabel
+            table.insert(StatusOrder, title)
+            UpdateContainerSize()
+
+            -- 自动移除（如果有持续时间）
+            if duration then
+                task.spawn(function()
+                    task.wait(duration)
+                    RemoveStatus(title)
+                end)
+            end
         end
     end
 
-    --// 移除状态显示函数
+    --// 移除状态显示函数（改进版）
     local function RemoveStatus(title: string)
         if ActiveStates[title] then
             local StatusLabel = ActiveStates[title]
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 0, 0, 25), TextTransparency = 1, BackgroundTransparency = 1 })
+            Tween(StatusLabel, 0.25, {
+                Size = UDim2.new(0, 0, 0, 25),
+                BackgroundTransparency = 1,
+                TextTransparency = 1
+            })
+            for _, stroke in pairs(StatusLabel:GetChildren()) do
+                if stroke:IsA("UIStroke") then
+                    Tween(stroke, 0.25, { Transparency = 1 })
+                end
+            end
             task.wait(0.25)
             StatusLabel:Destroy()
             ActiveStates[title] = nil
+            for i, v in ipairs(StatusOrder) do
+                if v == title then
+                    table.remove(StatusOrder, i)
+                    break
+                end
+            end
+            UpdateContainerSize()
         end
     end
 
@@ -672,17 +744,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         })
     end
     
-    function Options:AddButton(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
+    function Options:AddButton(Settings: { Title: string, Description: string, Tab: Instance, Callback: any, StatusDuration: number? }) 
         local Button = Clone(Components["Button"])
         local Title, Description = Options:GetLabels(Button)
 
         local ButtonConnection = Connect(Button.MouseButton1Click, function()
             Settings.Callback()
-            AddStatus(Settings.Title) -- 添加状态
-            task.spawn(function()
-                task.wait(2) -- 状态显示 2 秒
-                RemoveStatus(Settings.Title)
-            end)
+            AddStatus(Settings.Title, Settings.StatusDuration or 2) -- 使用自定义持续时间，默认为 2 秒
         end)
         Animations:Component(Button)
         SetProperty(Title, { Text = Settings.Title })
@@ -719,7 +787,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         table.insert(Connections, InputFocusConnection)
     end
 
-    function Options:AddToggle(Settings: { Title: string, Description: string, Default: boolean, Tab: Instance, Callback: any }) 
+    function Options:AddToggle(Settings: { Title: string, Description: string, Default: boolean, Tab: Instance, Callback: any, StatusDuration: number? }) 
         local Toggle = Clone(Components["Toggle"])
         local Title, Description = Options:GetLabels(Toggle)
         local On = Toggle["Value"]
@@ -730,7 +798,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             if Value then
                 Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) })
                 Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
-                AddStatus(Settings.Title) -- 开启时添加状态
+                AddStatus(Settings.Title, Settings.StatusDuration) -- 开启时添加状态，可自定义持续时间
             else
                 Tween(Main, .2, { BackgroundColor3 = Theme.Interactables })
                 Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) })
@@ -1024,6 +1092,12 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                     Stroke.Transparency = Setup.Transparency
                 end
             end,
+            ["Shadow"] = function(Stroke)
+                if Stroke:IsA("UIStroke") then
+                    Stroke.Color = Theme.Shadow
+                    Stroke.Transparency = 0.7
+                end
+            end,
             ["DropdownExample"] = function(Label)
                 Label.BackgroundColor3 = Theme.Secondary
             end,
@@ -1090,22 +1164,32 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             if StatusLabel:IsA("TextLabel") then
                 StatusLabel.BackgroundColor3 = Theme.Component
                 StatusLabel.TextColor3 = Theme.Title
-                local Stroke = StatusLabel:FindFirstChildOfClass("UIStroke")
+                local Stroke = StatusLabel:FindFirstChild("Outline")
+                local Shadow = StatusLabel:FindFirstChild("Shadow")
                 if Stroke then
                     Stroke.Color = Theme.Outline
                     Stroke.Transparency = Setup.Transparency
                 end
+                if Shadow then
+                    Shadow.Color = Theme.Shadow
+                    Shadow.Transparency = 0.7
+                end
                 -- 重新计算宽度以匹配新主题
+                local screenWidth = game:GetService("GuiService"):GetScreenResolution().X
                 local textSize = TextService:GetTextSize(
                     StatusLabel.Text,
                     14,
                     Enum.Font.SourceSans,
-                    Vector2.new(1000, 25)
+                    Vector2.new(10000, 25)
                 )
-                local labelWidth = math.clamp(textSize.X + 20, 100, 200)
+                local labelWidth = math.clamp(textSize.X + 20, 0, 10000)
+                if labelWidth > screenWidth - 20 then
+                    labelWidth = screenWidth - 20
+                end
                 StatusLabel.Size = UDim2.new(0, labelWidth, 0, 25)
             end
         end
+        UpdateContainerSize()
     end
 
     function Options:SetSetting(Setting, Value)
@@ -1142,8 +1226,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         end
         Screen:Destroy()
         FloatingButton:Destroy()
-        StatusContainer:Destroy() -- 清理状态容器
-        ActiveStates = {} -- 清空状态表
+        StatusContainer:Destroy()
+        ActiveStates = {}
+        StatusOrder = {}
     end
 
     SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
