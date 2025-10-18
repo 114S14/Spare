@@ -1,3 +1,5 @@
+--[[
+]]
 
 --// Connections
 local GetService = game.GetService
@@ -342,7 +344,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                 Enum.Font.SourceSans,
                 Vector2.new(1000, 25) -- 最大宽度用于计算
             )
-            local labelWidth = math.clamp(textSize.X + 20, 100, 200) -- 最小100像素，最大200像素，+20为内边距
+            local labelWidth = math.clamp(textSize.X + 20, 0, 200) -- 最小100像素，最大200像素，+20为内边距
             StatusLabel.Size = UDim2.new(0, labelWidth, 0, 25)
 
             local Stroke = Instance.new("UIStroke")
