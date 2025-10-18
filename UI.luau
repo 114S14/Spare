@@ -1,4 +1,5 @@
 
+
 --// Connections
 local GetService = game.GetService
 local Connect = game.Loaded.Connect
@@ -318,7 +319,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-    --// 添加状态显示函数（动态宽度，最大10000，最小0，更新文字样式）
+    --// 添加状态显示函数（动态宽度，最大10000，最小0，文字向左移动10像素）
     local function AddStatus(title: string)
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
@@ -327,24 +328,29 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             StatusLabel.BackgroundColor3 = Theme.Component
             StatusLabel.TextColor3 = Theme.Title
             StatusLabel.Text = title
-            StatusLabel.TextSize = 16 -- 更改文字大小
-            StatusLabel.Font = Enum.Font.GothamBold -- 更改字体
-            StatusLabel.TextWrapped = true -- 启用文字换行
+            StatusLabel.TextSize = 16
+            StatusLabel.Font = Enum.Font.GothamBold
+            StatusLabel.TextWrapped = true
             StatusLabel.BackgroundTransparency = Setup.Transparency
             StatusLabel.TextTransparency = Setup.Transparency
             StatusLabel.ZIndex = 11
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
 
+            -- 添加左内边距
+            local Padding = Instance.new("UIPadding")
+            Padding.PaddingLeft = UDim.new(0, 10)
+            Padding.Parent = StatusLabel
+
             -- 计算文字尺寸（考虑换行）
             local textSize = TextService:GetTextSize(
                 title,
-                16, -- 匹配新的文字大小
-                Enum.Font.GothamBold, -- 匹配新的字体
-                Vector2.new(10000, 1000) -- 最大宽度和高度用于计算
+                16,
+                Enum.Font.GothamBold,
+                Vector2.new(10000, 1000)
             )
-            local labelWidth = math.clamp(textSize.X + 20, 0, 10000) -- 最小0，最大10000
-            local labelHeight = math.max(25, textSize.Y + 10) -- 最小25，考虑换行高度
+            local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20 = 30像素内边距
+            local labelHeight = math.max(25, textSize.Y + 10)
             StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
 
             local Stroke = Instance.new("UIStroke")
@@ -1086,19 +1092,26 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             end
         end
 
-        -- 更新状态标签的主题（包括动态宽度、高度和文字样式）
+        -- 更新状态标签的主题（包括动态宽度、高度、文字样式和左内边距）
         for _, StatusLabel in pairs(StatusContainer:GetChildren()) do
             if StatusLabel:IsA("TextLabel") then
                 StatusLabel.BackgroundColor3 = Theme.Component
                 StatusLabel.TextColor3 = Theme.Title
-                StatusLabel.TextSize = 16 -- 匹配新文字大小
-                StatusLabel.Font = Enum.Font.GothamBold -- 匹配新字体
-                StatusLabel.TextWrapped = true -- 保持换行
+                StatusLabel.TextSize = 16
+                StatusLabel.Font = Enum.Font.GothamBold
+                StatusLabel.TextWrapped = true
                 local Stroke = StatusLabel:FindFirstChildOfClass("UIStroke")
                 if Stroke then
                     Stroke.Color = Theme.Outline
                     Stroke.Transparency = Setup.Transparency
                 end
+                -- 添加或更新左内边距
+                local Padding = StatusLabel:FindFirstChildOfClass("UIPadding")
+                if not Padding then
+                    Padding = Instance.new("UIPadding")
+                    Padding.Parent = StatusLabel
+                end
+                Padding.PaddingLeft = UDim.new(0, 10)
                 -- 重新计算宽度和高度
                 local textSize = TextService:GetTextSize(
                     StatusLabel.Text,
@@ -1106,7 +1119,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                     Enum.Font.GothamBold,
                     Vector2.new(10000, 1000)
                 )
-                local labelWidth = math.clamp(textSize.X + 20, 0, 10000)
+                local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20
                 local labelHeight = math.max(25, textSize.Y + 10)
                 StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
             end
