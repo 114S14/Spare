@@ -1,4 +1,8 @@
-
+--[=[
+    User Interface Library
+    Made by Late
+    Modified to add status display with colored flowing text, dynamic width (min 0, max 10000 pixels), text style (GothamBold, size 16, wrapped, shifted left by 10 pixels), and robust initialization
+]=]
 
 --// Connections
 local GetService = game.GetService
@@ -9,7 +13,7 @@ local Destroy = game.Destroy
 
 if not game:IsLoaded() then
     local Loaded = game.Loaded
-    Loaded.Wait(Loaded);
+    Loaded.Wait(Loaded)
 end
 
 --// Important 
@@ -17,7 +21,7 @@ local Setup = {
     Keybind = Enum.KeyCode.LeftControl,
     Transparency = 0.2,
     ThemeMode = "Dark",
-    Size = nil,
+    Size = UDim2.new(0, 500, 0, 400), -- 默认大小，防止 nil
 }
 
 local Theme = {
@@ -166,25 +170,51 @@ local Resizeable = function(Tab, Minimum, Maximum)
 end
 
 --// Setup [UI]
-local success, Screen = pcall(function()
+local Screen
+local success, result = pcall(function()
     return Services.Insert:LoadLocalAsset("rbxassetid://18490507748")
 end)
 if not success then
-    warn("Failed to load UI asset: " .. Screen)
-    Screen = script.Parent
+    warn("Failed to load UI asset: " .. tostring(result))
+    Screen = Instance.new("ScreenGui")
+    Screen.Name = "UILibrary"
+    local Main = Instance.new("Frame", Screen)
+    Main.Name = "Main"
+    Main.Size = Setup.Size
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    Main.BackgroundColor3 = Theme.Primary
+    local Sidebar = Instance.new("Frame", Main)
+    Sidebar.Name = "Sidebar"
+    Sidebar.Size = UDim2.new(0, 150, 1, 0)
+    Sidebar.BackgroundColor3 = Theme.Secondary
+    local Tab = Instance.new("Frame", Sidebar)
+    Tab.Name = "Tab"
+    Tab.Size = UDim2.new(1, 0, 1, -50)
+    Tab.Position = UDim2.new(0, 0, 0, 50)
+    Tab.BackgroundTransparency = 1
+    local Components = Instance.new("Folder", Screen)
+    Components.Name = "Components"
+    print("Created fallback UI structure")
+else
+    Screen = result
+    print("Loaded UI asset successfully")
 end
 
-Screen.Main.Visible = false
-
+Screen.IgnoreGuiInset = true
+Screen.ResetOnSpawn = false
 xpcall(function()
     Screen.Parent = game.CoreGui
-end, function() 
+    print("Screen parent set to CoreGui")
+end, function(err)
     Screen.Parent = Player.GUI
+    warn("Failed to set CoreGui, using PlayerGui: " .. tostring(err))
 end)
 
 --// Tables for Data
 local Animations = {}
-local Components = Screen:FindFirstChild("Components")
+local Components = Screen:FindFirstChild("Components") or Instance.new("Folder", Screen)
+Components.Name = "Components"
 local Library = {}
 local StoredInfo = {
     Sections = {},
@@ -195,18 +225,21 @@ local StoredInfo = {
 function Animations:Open(Window: CanvasGroup, Transparency: number, UseCurrentSize: boolean)
     local Original = UseCurrentSize and Window.Size or Setup.Size
     local Multiplied = Multiply(Original, 1.1)
-    local Shadow = Window:FindFirstChildOfClass("UIStroke")
+    local Shadow = Window:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", Window)
+    Shadow.Color = Theme.Shadow
+    Shadow.Thickness = 1
 
     SetProperty(Shadow, { Transparency = 1 })
     SetProperty(Window, { Size = Multiplied, GroupTransparency = 1, Visible = true })
     Tween(Shadow, .25, { Transparency = 0.5 })
     Tween(Window, .25, { Size = Original, GroupTransparency = Transparency or 0 })
+    print("Animation: Open triggered for Window")
 end
 
 function Animations:Close(Window: CanvasGroup)
     local Original = Window.Size
     local Multiplied = Multiply(Original, 1.1)
-    local Shadow = Window:FindFirstChildOfClass("UIStroke")
+    local Shadow = Window:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", Window)
 
     SetProperty(Window, { Size = Original })
     Tween(Shadow, .25, { Transparency = 1 })
@@ -214,6 +247,7 @@ function Animations:Close(Window: CanvasGroup)
     task.wait(.25)
     Window.Size = Original
     Window.Visible = false
+    print("Animation: Close triggered for Window")
 end
 
 function Animations:Component(Component: any, Custom: boolean)    
@@ -243,11 +277,26 @@ end
 
 --// Library [Window]
 function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparency: number, MinimizeKeybind: Enum.KeyCode?, Theme: string, FloatingIcon: string? })
-    local Window = Clone(Screen:WaitForChild("Main"))
-    local Sidebar = Window:FindFirstChild("Sidebar")
-    local Holder = Window:FindFirstChild("Main")
-    local BG = Window:FindFirstChild("BackgroundShadow")
-    local Tab = Sidebar:FindFirstChild("Tab")
+    local Window = Screen:FindFirstChild("Main") or Instance.new("Frame", Screen)
+    Window.Name = "Main"
+    local Sidebar = Window:FindFirstChild("Sidebar") or Instance.new("Frame", Window)
+    Sidebar.Name = "Sidebar"
+    Sidebar.Size = UDim2.new(0, 150, 1, 0)
+    Sidebar.BackgroundColor3 = Theme.Secondary
+    local Holder = Window:FindFirstChild("Main") or Instance.new("Frame", Window)
+    Holder.Name = "Main"
+    Holder.Size = UDim2.new(1, -150, 1, 0)
+    Holder.Position = UDim2.new(0, 150, 0, 0)
+    Holder.BackgroundColor3 = Theme.Secondary
+    local BG = Window:FindFirstChild("BackgroundShadow") or Instance.new("Frame", Window)
+    BG.Name = "BackgroundShadow"
+    BG.Size = UDim2.new(1, 0, 1, 0)
+    BG.BackgroundTransparency = 1
+    local Tab = Sidebar:FindFirstChild("Tab") or Instance.new("Frame", Sidebar)
+    Tab.Name = "Tab"
+    Tab.Size = UDim2.new(1, 0, 1, -50)
+    Tab.Position = UDim2.new(0, 0, 0, 50)
+    Tab.BackgroundTransparency = 1
 
     local Options = {}
     local Examples = {}
@@ -256,26 +305,24 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     local IsToggling = false
     local IsDragging = false
     local DragStarted = 0
-    local ActiveStates = {} -- 存储当前激活的状态
+    local ActiveStates = {}
+    local ColorConnections = {}
 
+    -- 调试组件
     for Index, Example in next, Window:GetDescendants() do
         if Example.Name:find("Example") and not Examples[Example.Name] then
             Examples[Example.Name] = Example
+            print("Found example: " .. Example.Name)
         end
     end
 
-    --// 检查 Sidebar.Top 是否存在
-    local SidebarTop = Sidebar:FindFirstChild("Top")
-    if not SidebarTop then
-        warn("Sidebar.Top not found! Creating new Top frame.")
-        SidebarTop = Instance.new("Frame")
-        SidebarTop.Name = "Top"
-        SidebarTop.Parent = Sidebar
-        SidebarTop.BackgroundTransparency = 1
-        SidebarTop.Size = UDim2.new(1, 0, 0, 50)
-        SidebarTop.Position = UDim2.new(0, 0, 0, 0)
-    end
-    print("Sidebar.Top exists: ", SidebarTop ~= nil)
+    --// 检查 Sidebar.Top
+    local SidebarTop = Sidebar:FindFirstChild("Top") or Instance.new("Frame", Sidebar)
+    SidebarTop.Name = "Top"
+    SidebarTop.BackgroundTransparency = 1
+    SidebarTop.Size = UDim2.new(1, 0, 0, 50)
+    SidebarTop.Position = UDim2.new(0, 0, 0, 0)
+    print("Sidebar.Top created: ", SidebarTop ~= nil)
 
     --// 添加标题栏
     local TitleBar = Instance.new("TextLabel")
@@ -284,7 +331,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     TitleBar.Size = UDim2.new(0.5, 0, 0, 30)
     TitleBar.Position = UDim2.new(0, 10, 0, 5)
     TitleBar.BackgroundTransparency = 1
-    TitleBar.Text = Settings.Title
+    TitleBar.Text = Settings.Title or "UI Library"
     TitleBar.TextColor3 = Theme.Title
     TitleBar.TextSize = 16
     TitleBar.Font = Enum.Font.SourceSansBold
@@ -292,20 +339,10 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     TitleBar.TextYAlignment = Enum.TextYAlignment.Center
     TitleBar.ZIndex = 5
 
-    --// 删除原有按钮
-    local Buttons = SidebarTop:FindFirstChild("Buttons")
-    if Buttons then
-        for _, Button in pairs(Buttons:GetChildren()) do
-            if Button:IsA("TextButton") then
-                Button:Destroy()
-            end
-        end
-    end
-
-    --// 创建状态显示容器（位于屏幕右上角）
+    --// 创建状态显示容器
     local StatusContainer = Instance.new("Frame")
     StatusContainer.Name = "StatusContainer"
-    StatusContainer.Parent = Screen -- 绑定到 Screen
+    StatusContainer.Parent = Screen
     StatusContainer.BackgroundTransparency = 1
     StatusContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
     StatusContainer.Position = UDim2.new(1, -10, 0, 10)
@@ -318,34 +355,38 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.Padding = UDim.new(0, 5)
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    print("StatusContainer created at position: ", StatusContainer.Position)
 
-    --// 添加状态显示函数（动态宽度，最大10000，最小0，更新文字样式）
+    --// 添加状态显示函数（彩色流动）
     local function AddStatus(title: string)
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
             StatusLabel.Name = title
             StatusLabel.Parent = StatusContainer
             StatusLabel.BackgroundColor3 = Theme.Component
-            StatusLabel.TextColor3 = Theme.Title
+            StatusLabel.TextColor3 = Color3.fromHSV(0, 1, 1)
             StatusLabel.Text = title
-            StatusLabel.TextSize = 16 -- 更改文字大小
-            StatusLabel.Font = Enum.Font.GothamBold -- 更改字体
-            StatusLabel.TextWrapped = true -- 启用文字换行
+            StatusLabel.TextSize = 16
+            StatusLabel.Font = Enum.Font.GothamBold
+            StatusLabel.TextWrapped = true
             StatusLabel.BackgroundTransparency = Setup.Transparency
             StatusLabel.TextTransparency = Setup.Transparency
             StatusLabel.ZIndex = 11
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
 
-            -- 计算文字尺寸（考虑换行）
+            local Padding = Instance.new("UIPadding")
+            Padding.PaddingLeft = UDim.new(0, 10)
+            Padding.Parent = StatusLabel
+
             local textSize = TextService:GetTextSize(
                 title,
-                16, -- 匹配新的文字大小
-                Enum.Font.GothamBold, -- 匹配新的字体
-                Vector2.new(10000, 1000) -- 最大宽度和高度用于计算
+                16,
+                Enum.Font.GothamBold,
+                Vector2.new(10000, 1000)
             )
-            local labelWidth = math.clamp(textSize.X + 20, 0, 10000) -- 最小0，最大10000
-            local labelHeight = math.max(25, textSize.Y + 10) -- 最小25，考虑换行高度
+            local labelWidth = math.clamp(textSize.X + 30, 0, 10000)
+            local labelHeight = math.max(25, textSize.Y + 10)
             StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
 
             local Stroke = Instance.new("UIStroke")
@@ -358,11 +399,21 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             Corner.CornerRadius = UDim.new(0, 5)
             Corner.Parent = StatusLabel
 
-            -- 动画效果（动态宽度和高度）
+            local connection = Services.Run.Heartbeat:Connect(function()
+                if StatusLabel.Parent then
+                    local hue = (tick() % 3) / 3
+                    StatusLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+                else
+                    connection:Disconnect()
+                end
+            end)
+            ColorConnections[title] = connection
+
             StatusLabel.Size = UDim2.new(0, 0, 0, labelHeight)
             Tween(StatusLabel, 0.25, { Size = UDim2.new(0, labelWidth, 0, labelHeight) })
 
             ActiveStates[title] = StatusLabel
+            print("Added status: " .. title .. ", Size: " .. tostring(StatusLabel.Size))
         end
     end
 
@@ -373,8 +424,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             local labelHeight = StatusLabel.Size.Y.Offset
             Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 0, 0, labelHeight), TextTransparency = 1, BackgroundTransparency = 1 })
             task.wait(0.25)
+            if ColorConnections[title] then
+                ColorConnections[title]:Disconnect()
+                ColorConnections[title] = nil
+            end
             StatusLabel:Destroy()
             ActiveStates[title] = nil
+            print("Removed status: " .. title)
         end
     end
 
@@ -382,7 +438,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     Drag(Window)
     Resizeable(Window, Vector2.new(411, 271), Vector2.new(9e9, 9e9))
     Setup.Transparency = Settings.Transparency or 0
-    Setup.Size = Settings.Size
+    Setup.Size = Settings.Size or Setup.Size
     Setup.ThemeMode = Settings.Theme or "Dark"
 
     if Settings.MinimizeKeybind then
@@ -420,11 +476,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     Stroke.Thickness = 1
     Stroke.Transparency = Setup.Transparency
     Stroke.Parent = FloatingButton
-
-    --// 调试 FloatingButton 贴花
-    print("FloatingButton created: ", FloatingButton ~= nil)
-    print("FloatIcon.Image: ", FloatIcon.Image)
-    print("FloatIcon.ImageTransparency: ", FloatIcon.ImageTransparency)
+    print("FloatingButton created at position: " .. tostring(FloatingButton.Position))
 
     --// 使浮动按钮可拖动
     local function MakeDraggable(Button)
@@ -433,7 +485,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
         local DragConnection1 = Connect(Button.InputBegan, function(Input)
             if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Type then
-                print("开始拖动 FloatingButton")
+                print("Dragging FloatingButton started")
                 IsDragging = true
                 Dragging = true
                 DragStarted = tick()
@@ -461,7 +513,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                 Dragging = false
                 IsDragging = false
-                print("拖动结束，持续时间：" .. tostring(tick() - DragStarted))
+                print("Dragging ended, duration: " .. tostring(tick() - DragStarted))
             end
         end)
 
@@ -476,11 +528,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     --// 切换 UI
     local ToggleUI = function()
         if IsToggling then
-            print("切换被阻止：正在处理")
+            print("ToggleUI blocked: already processing")
             return
         end
         IsToggling = true
-        print("触发 ToggleUI，当前状态：" .. tostring(Opened))
+        print("ToggleUI triggered, current state: " .. tostring(Opened))
 
         if Opened then
             Opened = false
@@ -502,7 +554,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         task.spawn(function()
             task.wait(0.4)
             IsToggling = false
-            print("ToggleUI 完成，IsToggling 重置")
+            print("ToggleUI completed, IsToggling reset")
         end)
     end
 
@@ -516,7 +568,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             local currentTime = tick()
             if currentTime - lastClickTime > clickDelay then
                 lastClickTime = currentTime
-                print("点击 FloatingButton，触发切换")
+                print("FloatingButton clicked, triggering ToggleUI")
                 ToggleUI()
             end
         end
@@ -534,7 +586,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                 if TouchPos.X >= ButtonPos.X and TouchPos.X <= ButtonPos.X + ButtonSize.X and
                    TouchPos.Y >= ButtonPos.Y and TouchPos.Y <= ButtonPos.Y + ButtonSize.Y then
                     lastClickTime = currentTime
-                    print("触摸 FloatingButton，触发切换")
+                    print("FloatingButton touched, triggering ToggleUI")
                     ToggleUI()
                 end
                 task.wait(0.4)
@@ -547,7 +599,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
     local KeybindConnection = Services.Input.InputBegan:Connect(function(Input, Focused) 
         if Input.KeyCode == Setup.Keybind and not Focused then
-            print("快捷键触发切换")
+            print("Keybind triggered ToggleUI: " .. tostring(Setup.Keybind))
             ToggleUI()
         end
     end)
@@ -572,18 +624,24 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         end
 
         for Index, Main in next, Holder:GetChildren() do
-            if Main:IsA("CanvasGroup") then
-                local Opened, SameName = Main.Value, (Main.Name == Name)
-                local Scroll = Main:FindFirstChild("ScrollingFrame")
+            if Main:IsA("CanvasGroup") or Main:IsA("Frame") then
+                local Opened, SameName = Main.Value or Instance.new("BoolValue", Main), (Main.Name == Name)
+                Opened.Name = "Value"
                 if SameName and not Opened.Value then
                     Opened.Value = true
                     Main.Visible = true
                     Tween(Main, .3, { GroupTransparency = 0 })
-                    Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) })
+                    local Scroll = Main:FindFirstChild("ScrollingFrame")
+                    if Scroll then
+                        Tween(Scroll["UIPadding"], .3, { PaddingTop = UDim.new(0, 5) })
+                    end
                 elseif not SameName and Opened.Value then
                     Opened.Value = false
                     Tween(Main, .15, { GroupTransparency = 1 })
-                    Tween(Scroll["UIPadding"], .15, { PaddingTop = UDim.new(0, 15) })    
+                    local Scroll = Main:FindFirstChild("ScrollingFrame")
+                    if Scroll then
+                        Tween(Scroll["UIPadding"], .15, { PaddingTop = UDim.new(0, 15) })    
+                    end
                     task.delay(.2, function()
                         Main.Visible = false
                     end)
@@ -593,11 +651,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:AddTabSection(Settings: { Name: string, Order: number })
-        local Example = Examples["SectionExample"]
+        local Example = Examples["SectionExample"] or Instance.new("TextLabel", Tab)
+        Example.Name = "SectionExample"
+        Example.Text = Settings.Name
         local Section = Clone(Example)
         StoredInfo.Sections[Settings.Name] = Settings.Order
         SetProperty(Section, { 
-            Parent = Example.Parent,
+            Parent = Tab,
             Text = Settings.Name,
             Name = Settings.Name,
             LayoutOrder = Settings.Order,
@@ -607,47 +667,62 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
     function Options:AddTab(Settings: { Title: string, Icon: string, Section: string? })
         if StoredInfo.Tabs[Settings.Title] then 
-            warn("[UI LIB]: 标签 '" .. Settings.Title .. "' 已存在")
+            warn("[UI LIB]: Tab '" .. Settings.Title .. "' already exists")
             return nil
         end 
 
-        local Example, MainExample = Examples["TabButtonExample"], Examples["MainExample"]
+        local Example = Examples["TabButtonExample"] or Instance.new("TextButton", Tab)
+        Example.Name = "TabButtonExample"
+        local MainExample = Examples["MainExample"] or Instance.new("Frame", Holder)
+        MainExample.Name = "MainExample"
         local Section = StoredInfo.Sections[Settings.Section]
         local Main = Clone(MainExample)
-        local Tab = Clone(Example)
+        local TabButton = Clone(Example)
 
         if not Settings.Icon then
-            Destroy(Tab["ICO"])
+            local ICO = TabButton:FindFirstChild("ICO")
+            if ICO then Destroy(ICO) end
         else
-            SetProperty(Tab["ICO"], { Image = Settings.Icon })
+            local ICO = TabButton:FindFirstChild("ICO") or Instance.new("ImageLabel", TabButton)
+            ICO.Name = "ICO"
+            SetProperty(ICO, { Image = Settings.Icon })
         end
 
-        StoredInfo.Tabs[Settings.Title] = { Tab }
-        SetProperty(Tab["TextLabel"], { Text = Settings.Title })
-        SetProperty(Main, { Parent = MainExample.Parent, Name = Settings.Title })
-        SetProperty(Tab, { 
-            Parent = Example.Parent,
+        StoredInfo.Tabs[Settings.Title] = { TabButton }
+        local TextLabel = TabButton:FindFirstChild("TextLabel") or Instance.new("TextLabel", TabButton)
+        SetProperty(TextLabel, { Text = Settings.Title })
+        SetProperty(Main, { Parent = Holder, Name = Settings.Title })
+        SetProperty(TabButton, { 
+            Parent = Tab,
             LayoutOrder = Section or #StoredInfo.Sections + 1,
             Name = Settings.Title,
             Visible = true
         })
 
-        local TabConnection = Tab.MouseButton1Click:Connect(function()
-            Options:SetTab(Tab.Name)
+        local Scroll = Main:FindFirstChild("ScrollingFrame") or Instance.new("ScrollingFrame", Main)
+        Scroll.Name = "ScrollingFrame"
+        Scroll.Size = UDim2.new(1, 0, 1, 0)
+        Scroll.BackgroundTransparency = 1
+
+        local TabConnection = TabButton.MouseButton1Click:Connect(function()
+            Options:SetTab(TabButton.Name)
+            print("Tab switched to: " .. TabButton.Name)
         end)
         table.insert(Connections, TabConnection)
 
-        return Main.ScrollingFrame
+        return Scroll
     end
     
     function Options:Notify(Settings: { Title: string, Description: string, Duration: number }) 
-        local Notification = Clone(Components["Notification"])
+        local Notification = Components:FindFirstChild("Notification") or Instance.new("CanvasGroup", Components)
+        Notification.Name = "Notification"
         local Title, Description = Options:GetLabels(Notification)
-        local Timer = Notification["Timer"]
+        local Timer = Notification:FindFirstChild("Timer") or Instance.new("Frame", Notification)
+        Timer.Name = "Timer"
         
         SetProperty(Title, { Text = Settings.Title })
         SetProperty(Description, { Text = Settings.Description })
-        SetProperty(Notification, { Parent = Screen["Frame"] })
+        SetProperty(Notification, { Parent = Screen })
         
         task.spawn(function() 
             local Duration = Settings.Duration or 2
@@ -661,12 +736,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:GetLabels(Component)
-        local Labels = Component:FindFirstChild("Labels")
-        return Labels.Title, Labels.Description
+        local Labels = Component:FindFirstChild("Labels") or Instance.new("Frame", Component)
+        Labels.Name = "Labels"
+        local Title = Labels:FindFirstChild("Title") or Instance.new("TextLabel", Labels)
+        Title.Name = "Title"
+        local Description = Labels:FindFirstChild("Description") or Instance.new("TextLabel", Labels)
+        Description.Name = "Description"
+        return Title, Description
     end
 
     function Options:AddSection(Settings: { Name: string, Tab: Instance }) 
-        local Section = Clone(Components["Section"])
+        local Section = Components:FindFirstChild("Section") or Instance.new("TextLabel", Components)
+        Section.Name = "Section"
         SetProperty(Section, {
             Text = Settings.Name,
             Parent = Settings.Tab,
@@ -675,16 +756,18 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
     
     function Options:AddButton(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
-        local Button = Clone(Components["Button"])
+        local Button = Components:FindFirstChild("Button") or Instance.new("TextButton", Components)
+        Button.Name = "Button"
         local Title, Description = Options:GetLabels(Button)
 
         local ButtonConnection = Connect(Button.MouseButton1Click, function()
             Settings.Callback()
-            AddStatus(Settings.Title) -- 添加状态
+            AddStatus(Settings.Title)
             task.spawn(function()
-                task.wait(2) -- 状态显示 2 秒
+                task.wait(2)
                 RemoveStatus(Settings.Title)
             end)
+            print("Button clicked: " .. Settings.Title)
         end)
         Animations:Component(Button)
         SetProperty(Title, { Text = Settings.Title })
@@ -698,9 +781,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:AddInput(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
-        local Input = Clone(Components["Input"])
+        local Input = Components:FindFirstChild("Input") or Instance.new("TextButton", Components)
+        Input.Name = "Input"
         local Title, Description = Options:GetLabels(Input)
-        local TextBox = Input["Main"]["Input"]
+        local TextBox = Input:FindFirstChild("Main") and Input.Main:FindFirstChild("Input") or Instance.new("TextBox", Input)
+        TextBox.Name = "Input"
+        local Main = TextBox.Parent or Instance.new("Frame", Input)
+        Main.Name = "Main"
 
         local InputClickConnection = Connect(Input.MouseButton1Click, function() 
             TextBox:CaptureFocus()
@@ -722,21 +809,25 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:AddToggle(Settings: { Title: string, Description: string, Default: boolean, Tab: Instance, Callback: any }) 
-        local Toggle = Clone(Components["Toggle"])
+        local Toggle = Components:FindFirstChild("Toggle") or Instance.new("TextButton", Components)
+        Toggle.Name = "Toggle"
         local Title, Description = Options:GetLabels(Toggle)
-        local On = Toggle["Value"]
-        local Main = Toggle["Main"]
-        local Circle = Main["Circle"]
+        local On = Toggle:FindFirstChild("Value") or Instance.new("BoolValue", Toggle)
+        On.Name = "Value"
+        local Main = Toggle:FindFirstChild("Main") or Instance.new("Frame", Toggle)
+        Main.Name = "Main"
+        local Circle = Main:FindFirstChild("Circle") or Instance.new("Frame", Main)
+        Circle.Name = "Circle"
         
         local Set = function(Value)
             if Value then
                 Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) })
                 Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
-                AddStatus(Settings.Title) -- 开启时添加状态
+                AddStatus(Settings.Title)
             else
                 Tween(Main, .2, { BackgroundColor3 = Theme.Interactables })
                 Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) })
-                RemoveStatus(Settings.Title) -- 关闭时移除状态
+                RemoveStatus(Settings.Title)
             end
             On.Value = Value
         end 
@@ -745,6 +836,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             local Value = not On.Value
             Set(Value)
             Settings.Callback(Value)
+            print("Toggle switched: " .. Settings.Title .. " to " .. tostring(Value))
         end)
 
         Animations:Component(Toggle)
@@ -760,9 +852,13 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
     
     function Options:AddKeybind(Settings: { Title: string, Description: string, Tab: Instance, Callback: any }) 
-        local Dropdown = Clone(Components["Keybind"])
+        local Dropdown = Components:FindFirstChild("Keybind") or Instance.new("TextButton", Components)
+        Dropdown.Name = "Keybind"
         local Title, Description = Options:GetLabels(Dropdown)
-        local Bind = Dropdown["Main"].Options
+        local Bind = Dropdown:FindFirstChild("Main") and Dropdown.Main:FindFirstChild("Options") or Instance.new("TextLabel", Dropdown)
+        Bind.Name = "Options"
+        local Main = Bind.Parent or Instance.new("Frame", Dropdown)
+        Main.Name = "Main"
         
         local Mouse = { Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3 }
         local Types = { 
@@ -784,7 +880,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                         Settings.Callback(Key)
                         SetProperty(Bind, { Text = tostring(Key.KeyCode):gsub(Types.Key, "") })
                     end
-                end 
+                end
             end)
             table.insert(Connections, Detect)
         end)
@@ -801,13 +897,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:AddDropdown(Settings: { Title: string, Description: string, Options: {}, Tab: Instance, Callback: any }) 
-        local Dropdown = Clone(Components["Dropdown"])
+        local Dropdown = Components:FindFirstChild("Dropdown") or Instance.new("TextButton", Components)
+        Dropdown.Name = "Dropdown"
         local Title, Description = Options:GetLabels(Dropdown)
-        local Text = Dropdown["Main"].Options
+        local Text = Dropdown:FindFirstChild("Main") and Dropdown.Main:FindFirstChild("Options") or Instance.new("TextLabel", Dropdown)
+        Text.Name = "Options"
+        local Main = Text.Parent or Instance.new("Frame", Dropdown)
+        Main.Name = "Main"
 
         local DropdownConnection = Connect(Dropdown.MouseButton1Click, function()
-            local Example = Clone(Examples["DropdownExample"])
-            local Buttons = Example["Top"]["Buttons"]
+            local Example = Examples["DropdownExample"] or Instance.new("CanvasGroup", Components)
+            Example.Name = "DropdownExample"
+            local Buttons = Example:FindFirstChild("Top") and Example.Top:FindFirstChild("Buttons") or Instance.new("Frame", Example)
+            Buttons.Name = "Buttons"
 
             Tween(BG, .25, { BackgroundTransparency = 0.6 })
             SetProperty(Example, { Parent = Window })
@@ -827,13 +929,15 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             end
 
             for Index, Option in next, Settings.Options do
-                local Button = Clone(Examples["DropdownButtonExample"])
+                local Button = Examples["DropdownButtonExample"] or Instance.new("TextButton", Buttons)
+                Button.Name = "DropdownButtonExample"
                 local Title, Description = Options:GetLabels(Button)
-                local Selected = Button["Value"]
+                local Selected = Button:FindFirstChild("Value") or Instance.new("BoolValue", Button)
+                Selected.Name = "Value"
 
                 Animations:Component(Button)
                 SetProperty(Title, { Text = Index })
-                SetProperty(Button, { Parent = Example.ScrollingFrame, Visible = true })
+                SetProperty(Button, { Parent = Example.ScrollingFrame or Buttons, Visible = true })
                 Destroy(Description)
 
                 local OptionConnection = Connect(Button.MouseButton1Click, function() 
@@ -872,14 +976,23 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:AddSlider(Settings: { Title: string, Description: string, MaxValue: number, AllowDecimals: boolean, DecimalAmount: number, Tab: Instance, Callback: any }) 
-        local Slider = Clone(Components["Slider"])
+        local Slider = Components:FindFirstChild("Slider") or Instance.new("TextButton", Components)
+        Slider.Name = "Slider"
         local Title, Description = Options:GetLabels(Slider)
-        local Main = Slider["Slider"]
-        local Amount = Main["Main"].Input
-        local Slide = Main["Slide"]
-        local Fire = Slide["Fire"]
-        local Fill = Slide["Highlight"]
-        local Circle = Fill["Circle"]
+        local Main = Slider:FindFirstChild("Slider") or Instance.new("Frame", Slider)
+        Main.Name = "Slider"
+        local Amount = Main:FindFirstChild("Main") and Main.Main:FindFirstChild("Input") or Instance.new("TextBox", Main)
+        Amount.Name = "Input"
+        local MainFrame = Amount.Parent or Instance.new("Frame", Main)
+        MainFrame.Name = "Main"
+        local Slide = Main:FindFirstChild("Slide") or Instance.new("Frame", Main)
+        Slide.Name = "Slide"
+        local Fire = Slide:FindFirstChild("Fire") or Instance.new("Frame", Slide)
+        Fire.Name = "Fire"
+        local Fill = Slide:FindFirstChild("Highlight") or Instance.new("Frame", Slide)
+        Fill.Name = "Highlight"
+        local Circle = Fill:FindFirstChild("Circle") or Instance.new("Frame", Fill)
+        Circle.Name = "Circle"
 
         local Active = false
         local Value = 0
@@ -938,7 +1051,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     end
 
     function Options:AddParagraph(Settings: { Title: string, Description: string, Tab: Instance }) 
-        local Paragraph = Clone(Components["Paragraph"])
+        local Paragraph = Components:FindFirstChild("Paragraph") or Instance.new("Frame", Components)
+        Paragraph.Name = "Paragraph"
         local Title, Description = Options:GetLabels(Paragraph)
         SetProperty(Title, { Text = Settings.Title })
         SetProperty(Description, { Text = Settings.Description })
@@ -1076,7 +1190,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         Theme = Info or Theme
         Window.BackgroundColor3 = Theme.Primary
         Holder.BackgroundColor3 = Theme.Secondary
-        Window.UIStroke.Color = Theme.Shadow
+        local Stroke = Window:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", Window)
+        Stroke.Color = Theme.Shadow
 
         for Index, Descendant in next, Screen:GetDescendants() do
             local Name, Class = Themes.Names[Descendant.Name], Themes.Classes[Descendant.ClassName]
@@ -1087,31 +1202,47 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             end
         end
 
-        -- 更新状态标签的主题（包括动态宽度、高度和文字样式）
         for _, StatusLabel in pairs(StatusContainer:GetChildren()) do
             if StatusLabel:IsA("TextLabel") then
                 StatusLabel.BackgroundColor3 = Theme.Component
-                StatusLabel.TextColor3 = Theme.Title
-                StatusLabel.TextSize = 16 -- 匹配新文字大小
-                StatusLabel.Font = Enum.Font.GothamBold -- 匹配新字体
-                StatusLabel.TextWrapped = true -- 保持换行
+                StatusLabel.TextSize = 16
+                StatusLabel.Font = Enum.Font.GothamBold
+                StatusLabel.TextWrapped = true
                 local Stroke = StatusLabel:FindFirstChildOfClass("UIStroke")
                 if Stroke then
                     Stroke.Color = Theme.Outline
                     Stroke.Transparency = Setup.Transparency
                 end
-                -- 重新计算宽度和高度
+                local Padding = StatusLabel:FindFirstChildOfClass("UIPadding")
+                if not Padding then
+                    Padding = Instance.new("UIPadding")
+                    Padding.Parent = StatusLabel
+                end
+                Padding.PaddingLeft = UDim.new(0, 10)
                 local textSize = TextService:GetTextSize(
                     StatusLabel.Text,
                     16,
                     Enum.Font.GothamBold,
                     Vector2.new(10000, 1000)
                 )
-                local labelWidth = math.clamp(textSize.X + 20, 0, 10000)
+                local labelWidth = math.clamp(textSize.X + 30, 0, 10000)
                 local labelHeight = math.max(25, textSize.Y + 10)
                 StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
+                if ColorConnections[StatusLabel.Name] then
+                    ColorConnections[StatusLabel.Name]:Disconnect()
+                end
+                local connection = Services.Run.Heartbeat:Connect(function()
+                    if StatusLabel.Parent then
+                        local hue = (tick() % 3) / 3
+                        StatusLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+                    else
+                        connection:Disconnect()
+                    end
+                end)
+                ColorConnections[StatusLabel.Name] = connection
             end
         end
+        print("Theme updated")
     end
 
     function Options:SetSetting(Setting, Value)
@@ -1142,18 +1273,31 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         for _, Connection in ipairs(Connections) do
             pcall(function() Connection:Disconnect() end)
         end
+        for _, Connection in pairs(ColorConnections) do
+            pcall(function() Connection:Disconnect() end)
+        end
         Connections = {}
+        ColorConnections = {}
         for _, descendant in pairs(Screen:GetDescendants()) do
             pcall(function() descendant:Destroy() end)
         end
         Screen:Destroy()
         FloatingButton:Destroy()
-        StatusContainer:Destroy() -- 清理状态容器
-        ActiveStates = {} -- 清空状态表
+        StatusContainer:Destroy()
+        ActiveStates = {}
+        print("UI destroyed")
     end
 
-    SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
+    SetProperty(Window, { 
+        Size = Settings.Size or Setup.Size, 
+        Position = UDim2.new(0.5, 0, 0.5, 0), 
+        AnchorPoint = Vector2.new(0.5, 0.5), 
+        Visible = true, 
+        Parent = Screen,
+        BackgroundColor3 = Theme.Primary
+    })
     Animations:Open(Window, Settings.Transparency or 0)
+    print("Window initialized, Visible: " .. tostring(Window.Visible) .. ", Size: " .. tostring(Window.Size))
 
     return Options
 end
