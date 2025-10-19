@@ -1,3 +1,5 @@
+
+
 --// Connections
 local GetService = game.GetService
 local Connect = game.Loaded.Connect
@@ -255,7 +257,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     local IsDragging = false
     local DragStarted = 0
     local ActiveStates = {} -- 存储当前激活的状态
-    local ColorConnections = {} -- 存储彩色流动的连接
 
     for Index, Example in next, Window:GetDescendants() do
         if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -318,38 +319,33 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-    --// 添加状态显示函数（动态宽度，最大10000，最小0，文字向左移动10像素，彩色流动）
+    --// 添加状态显示函数（动态宽度，最大10000，最小0，更新文字样式）
     local function AddStatus(title: string)
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
             StatusLabel.Name = title
             StatusLabel.Parent = StatusContainer
             StatusLabel.BackgroundColor3 = Theme.Component
-            StatusLabel.TextColor3 = Color3.fromHSV(0, 1, 1) -- 初始颜色
+            StatusLabel.TextColor3 = Theme.Title
             StatusLabel.Text = title
-            StatusLabel.TextSize = 16
-            StatusLabel.Font = Enum.Font.GothamBold
-            StatusLabel.TextWrapped = true
+            StatusLabel.TextSize = 16 -- 更改文字大小
+            StatusLabel.Font = Enum.Font.GothamBold -- 更改字体
+            StatusLabel.TextWrapped = true -- 启用文字换行
             StatusLabel.BackgroundTransparency = Setup.Transparency
             StatusLabel.TextTransparency = Setup.Transparency
             StatusLabel.ZIndex = 11
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
 
-            -- 添加左内边距
-            local Padding = Instance.new("UIPadding")
-            Padding.PaddingLeft = UDim.new(0, 10)
-            Padding.Parent = StatusLabel
-
             -- 计算文字尺寸（考虑换行）
             local textSize = TextService:GetTextSize(
                 title,
-                16,
-                Enum.Font.GothamBold,
-                Vector2.new(10000, 1000)
+                16, -- 匹配新的文字大小
+                Enum.Font.GothamBold, -- 匹配新的字体
+                Vector2.new(10000, 1000) -- 最大宽度和高度用于计算
             )
-            local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20
-            local labelHeight = math.max(25, textSize.Y + 10)
+            local labelWidth = math.clamp(textSize.X + 20, 0, 10000) -- 最小0，最大10000
+            local labelHeight = math.max(25, textSize.Y + 10) -- 最小25，考虑换行高度
             StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
 
             local Stroke = Instance.new("UIStroke")
@@ -361,17 +357,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             local Corner = Instance.new("UICorner")
             Corner.CornerRadius = UDim.new(0, 5)
             Corner.Parent = StatusLabel
-
-            -- 彩色流动效果
-            local connection = Services.Run.Heartbeat:Connect(function()
-                if StatusLabel.Parent then
-                    local hue = (tick() % 3) / 3 -- 3秒循环
-                    StatusLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
-                else
-                    connection:Disconnect()
-                end
-            end)
-            ColorConnections[title] = connection
 
             -- 动画效果（动态宽度和高度）
             StatusLabel.Size = UDim2.new(0, 0, 0, labelHeight)
@@ -388,11 +373,6 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             local labelHeight = StatusLabel.Size.Y.Offset
             Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 0, 0, labelHeight), TextTransparency = 1, BackgroundTransparency = 1 })
             task.wait(0.25)
-            -- 断开彩色流动连接
-            if ColorConnections[title] then
-                ColorConnections[title]:Disconnect()
-                ColorConnections[title] = nil
-            end
             StatusLabel:Destroy()
             ActiveStates[title] = nil
         end
@@ -804,7 +784,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                         Settings.Callback(Key)
                         SetProperty(Bind, { Text = tostring(Key.KeyCode):gsub(Types.Key, "") })
                     end
-                end
+                end 
             end)
             table.insert(Connections, Detect)
         end)
@@ -1107,25 +1087,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             end
         end
 
-        -- 更新状态标签的主题（包括动态宽度、高度、左内边距，保持彩色流动）
+        -- 更新状态标签的主题（包括动态宽度、高度和文字样式）
         for _, StatusLabel in pairs(StatusContainer:GetChildren()) do
             if StatusLabel:IsA("TextLabel") then
                 StatusLabel.BackgroundColor3 = Theme.Component
-                StatusLabel.TextSize = 16
-                StatusLabel.Font = Enum.Font.GothamBold
-                StatusLabel.TextWrapped = true
+                StatusLabel.TextColor3 = Theme.Title
+                StatusLabel.TextSize = 16 -- 匹配新文字大小
+                StatusLabel.Font = Enum.Font.GothamBold -- 匹配新字体
+                StatusLabel.TextWrapped = true -- 保持换行
                 local Stroke = StatusLabel:FindFirstChildOfClass("UIStroke")
                 if Stroke then
                     Stroke.Color = Theme.Outline
                     Stroke.Transparency = Setup.Transparency
                 end
-                -- 添加或更新左内边距
-                local Padding = StatusLabel:FindFirstChildOfClass("UIPadding")
-                if not Padding then
-                    Padding = Instance.new("UIPadding")
-                    Padding.Parent = StatusLabel
-                end
-                Padding.PaddingLeft = UDim.new(0, 10)
                 -- 重新计算宽度和高度
                 local textSize = TextService:GetTextSize(
                     StatusLabel.Text,
@@ -1133,22 +1107,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
                     Enum.Font.GothamBold,
                     Vector2.new(10000, 1000)
                 )
-                local labelWidth = math.clamp(textSize.X + 30, 0, 10000) -- 左10 + 右20
+                local labelWidth = math.clamp(textSize.X + 20, 0, 10000)
                 local labelHeight = math.max(25, textSize.Y + 10)
                 StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
-                -- 重新绑定彩色流动效果
-                if ColorConnections[StatusLabel.Name] then
-                    ColorConnections[StatusLabel.Name]:Disconnect()
-                end
-                local connection = Services.Run.Heartbeat:Connect(function()
-                    if StatusLabel.Parent then
-                        local hue = (tick() % 3) / 3
-                        StatusLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
-                    else
-                        connection:Disconnect()
-                    end
-                end)
-                ColorConnections[StatusLabel.Name] = connection
             end
         end
     end
@@ -1181,11 +1142,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         for _, Connection in ipairs(Connections) do
             pcall(function() Connection:Disconnect() end)
         end
-        for _, Connection in pairs(ColorConnections) do
-            pcall(function() Connection:Disconnect() end)
-        end
         Connections = {}
-        ColorConnections = {}
         for _, descendant in pairs(Screen:GetDescendants()) do
             pcall(function() descendant:Destroy() end)
         end
