@@ -1,8 +1,4 @@
---[=[
-    User Interface Library
-    Made by Late
-    Modified to add status display in screen top-right corner with dynamic width (min 0, max 10000 pixels), updated text style (GothamBold, size 16, wrapped), and text shifted left by 15 pixels
-]=]
+
 
 --// Connections
 local GetService = game.GetService
