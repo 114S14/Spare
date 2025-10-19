@@ -1,6 +1,3 @@
---[=[
-    Made by deepseek
-]=]
 
 --// Connections
 local GetService = game.GetService
@@ -11,7 +8,7 @@ local Destroy = game.Destroy
 
 if not game:IsLoaded() then
     local Loaded = game.Loaded
-    Loaded.Wait(Loaded);
+    Loaded.Wait(Loaded)
 end
 
 --// Important 
@@ -258,7 +255,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     local IsToggling = false
     local IsDragging = false
     local DragStarted = 0
-    local ActiveStates = {} -- 存储当前激活的状态
+    local ActiveStates = {} -- 存储当前激活的状态及其动画
 
     for Index, Example in next, Window:GetDescendants() do
         if Example.Name:find("Example") and not Examples[Example.Name] then
@@ -307,7 +304,7 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     --// 创建状态显示容器（位于屏幕右上角）
     local StatusContainer = Instance.new("Frame")
     StatusContainer.Name = "StatusContainer"
-    StatusContainer.Parent = Screen -- 绑定到 Screen
+    StatusContainer.Parent = Screen
     StatusContainer.BackgroundTransparency = 1
     StatusContainer.Size = UDim2.new(0.3, 0, 0.5, 0)
     StatusContainer.Position = UDim2.new(1, -10, 0, 10)
@@ -321,35 +318,57 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     StatusList.FillDirection = Enum.FillDirection.Vertical
     StatusList.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
-    --// 添加状态显示函数（动态宽度，最大10000，最小0，更新文字样式）
+    --// 添加状态显示函数（彩色文本 + 垂直流动动画）
     local function AddStatus(title: string)
         if not ActiveStates[title] then
             local StatusLabel = Instance.new("TextLabel")
             StatusLabel.Name = title
             StatusLabel.Parent = StatusContainer
             StatusLabel.BackgroundColor3 = Theme.Component
-            StatusLabel.TextColor3 = Theme.Title
             StatusLabel.Text = title
-            StatusLabel.TextSize = 16 -- 更改文字大小
-            StatusLabel.Font = Enum.Font.GothamBold -- 更改字体
-            StatusLabel.TextWrapped = true -- 启用文字换行
+            StatusLabel.TextSize = 16
+            StatusLabel.Font = Enum.Font.GothamBold
+            StatusLabel.TextWrapped = true
             StatusLabel.BackgroundTransparency = Setup.Transparency
             StatusLabel.TextTransparency = Setup.Transparency
             StatusLabel.ZIndex = 11
             StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
             StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
 
-            -- 计算文字尺寸（考虑换行）
+            -- 计算文字尺寸
             local textSize = TextService:GetTextSize(
                 title,
-                16, -- 匹配新的文字大小
-                Enum.Font.GothamBold, -- 匹配新的字体
-                Vector2.new(10000, 1000) -- 最大宽度和高度用于计算
+                16,
+                Enum.Font.GothamBold,
+                Vector2.new(10000, 1000)
             )
-            local labelWidth = math.clamp(textSize.X + 20, 0, 10000) -- 最小0，最大10000
-            local labelHeight = math.max(25, textSize.Y + 10) -- 最小25，考虑换行高度
+            local labelWidth = math.clamp(textSize.X + 20, 0, 10000)
+            local labelHeight = math.max(25, textSize.Y + 10)
             StatusLabel.Size = UDim2.new(0, labelWidth, 0, labelHeight)
 
+            -- 添加彩色渐变
+            local Gradient = Instance.new("UIGradient")
+            Gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), -- 红色
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 0)), -- 绿色
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 255)) -- 蓝色
+            })
+            Gradient.Rotation = 90 -- 垂直渐变
+            Gradient.Parent = StatusLabel
+
+            -- 颜色流动动画
+            local function animateGradient()
+                local tween = Services.Tween:Create(
+                    Gradient,
+                    TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true),
+                    { Offset = Vector2.new(0, 1) }
+                )
+                tween:Play()
+                return tween
+            end
+            local gradientTween = animateGradient()
+
+            -- 添加描边和圆角
             local Stroke = Instance.new("UIStroke")
             Stroke.Color = Theme.Outline
             Stroke.Thickness = 1
@@ -360,20 +379,35 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             Corner.CornerRadius = UDim.new(0, 5)
             Corner.Parent = StatusLabel
 
-            -- 动画效果（动态宽度和高度）
-            StatusLabel.Size = UDim2.new(0, 0, 0, labelHeight)
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, labelWidth, 0, labelHeight) })
+            -- 垂直流动动画（从顶部进入）
+            StatusLabel.Position = UDim2.new(0, 0, 0, -labelHeight)
+            Tween(StatusLabel, 0.25, {
+                Position = UDim2.new(0, 0, 0, 0),
+                Size = UDim2.new(0, labelWidth, 0, labelHeight),
+                BackgroundTransparency = Setup.Transparency,
+                TextTransparency = Setup.Transparency
+            })
 
-            ActiveStates[title] = StatusLabel
+            ActiveStates[title] = { Label = StatusLabel, GradientTween = gradientTween }
         end
     end
 
-    --// 移除状态显示函数
+    --// 移除状态显示函数（向下移出）
     local function RemoveStatus(title: string)
         if ActiveStates[title] then
-            local StatusLabel = ActiveStates[title]
+            local StatusLabel = ActiveStates[title].Label
+            local gradientTween = ActiveStates[title].GradientTween
             local labelHeight = StatusLabel.Size.Y.Offset
-            Tween(StatusLabel, 0.25, { Size = UDim2.new(0, 0, 0, labelHeight), TextTransparency = 1, BackgroundTransparency = 1 })
+
+            -- 停止颜色流动动画
+            gradientTween:Cancel()
+
+            -- 向下移出动画
+            Tween(StatusLabel, 0.25, {
+                Position = UDim2.new(0, 0, 0, labelHeight),
+                TextTransparency = 1,
+                BackgroundTransparency = 1
+            })
             task.wait(0.25)
             StatusLabel:Destroy()
             ActiveStates[title] = nil
@@ -419,10 +453,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
     Corner.Parent = FloatingButton
     local Stroke = Instance.new("UIStroke")
     Stroke.Color = Theme.Outline
+    Stroke.Thickness = 1
     Stroke.Transparency = Setup.Transparency
     Stroke.Parent = FloatingButton
 
-    --// 调试 FloatingButton 贴花
+    --// 调试悬浮按钮
     print("FloatingButton created: ", FloatingButton ~= nil)
     print("FloatIcon.Image: ", FloatIcon.Image)
     print("FloatIcon.ImageTransparency: ", FloatIcon.ImageTransparency)
@@ -681,9 +716,9 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
 
         local ButtonConnection = Connect(Button.MouseButton1Click, function()
             Settings.Callback()
-            AddStatus(Settings.Title) -- 添加状态
+            AddStatus(Settings.Title)
             task.spawn(function()
-                task.wait(2) -- 状态显示 2 秒
+                task.wait(2)
                 RemoveStatus(Settings.Title)
             end)
         end)
@@ -733,11 +768,11 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             if Value then
                 Tween(Main, .2, { BackgroundColor3 = Color3.fromRGB(153, 155, 255) })
                 Tween(Circle, .2, { BackgroundColor3 = Color3.fromRGB(255, 255, 255), Position = UDim2.new(1, -16, 0.5, 0) })
-                AddStatus(Settings.Title) -- 开启时添加状态
+                AddStatus(Settings.Title)
             else
                 Tween(Main, .2, { BackgroundColor3 = Theme.Interactables })
                 Tween(Circle, .2, { BackgroundColor3 = Theme.Primary, Position = UDim2.new(0, 3, 0.5, 0) })
-                RemoveStatus(Settings.Title) -- 关闭时移除状态
+                RemoveStatus(Settings.Title)
             end
             On.Value = Value
         end 
@@ -1088,14 +1123,19 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
             end
         end
 
-        -- 更新状态标签的主题（包括动态宽度、高度和文字样式）
-        for _, StatusLabel in pairs(StatusContainer:GetChildren()) do
+        -- 更新状态标签的主题
+        for _, state in pairs(ActiveStates) do
+            local StatusLabel = state.Label
             if StatusLabel:IsA("TextLabel") then
                 StatusLabel.BackgroundColor3 = Theme.Component
-                StatusLabel.TextColor3 = Theme.Title
-                StatusLabel.TextSize = 16 -- 匹配新文字大小
-                StatusLabel.Font = Enum.Font.GothamBold -- 匹配新字体
-                StatusLabel.TextWrapped = true -- 保持换行
+                local Gradient = StatusLabel:FindFirstChildOfClass("UIGradient")
+                if Gradient then
+                    Gradient.Color = ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Theme.Title),
+                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255 - Theme.Title.R * 255, 255 - Theme.Title.G * 255, 255 - Theme.Title.B * 255)),
+                        ColorSequenceKeypoint.new(1, Theme.Title)
+                    })
+                end
                 local Stroke = StatusLabel:FindFirstChildOfClass("UIStroke")
                 if Stroke then
                     Stroke.Color = Theme.Outline
@@ -1149,8 +1189,8 @@ function Library:CreateWindow(Settings: { Title: string, Size: UDim2, Transparen
         end
         Screen:Destroy()
         FloatingButton:Destroy()
-        StatusContainer:Destroy() -- 清理状态容器
-        ActiveStates = {} -- 清空状态表
+        StatusContainer:Destroy()
+        ActiveStates = {}
     end
 
     SetProperty(Window, { Size = Settings.Size, Visible = true, Parent = Screen })
